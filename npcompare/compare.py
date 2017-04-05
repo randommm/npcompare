@@ -16,6 +16,7 @@
 
 from ._globals import *
 from scipy.integrate import quad
+import matplotlib.pyplot as plt
 
 class Compare:
   """Compare two samples.
@@ -92,3 +93,16 @@ class Compare:
           print(i, "samples generated")
 
     self.msamples = np.hstack([self.msamples, result])
+
+  def plot(self, ax=None, show=True, *args, **kwargs):
+    if len(self) == 0:
+      return "No metric samples to plot"
+    smsamples = np.sort(self.msamples)
+    if not ax:
+      ax = plt.figure().add_subplot(111)
+    ax.step(smsamples, np.arange(len(self)) / len(self),
+            *args, **kwargs)
+    if show:
+      plt.show()
+    return ax
+
