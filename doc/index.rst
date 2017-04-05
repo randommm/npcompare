@@ -32,3 +32,9 @@ Quick code examples
 Full modules documentation
 ----------------------------------
 * :ref:`modindex`
+
+
+Github repository
+----------------------------------
+
+https://github.com/randommm/npcompare
