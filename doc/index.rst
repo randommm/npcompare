@@ -6,10 +6,29 @@
 npcompare documentation
 =====================================
 
+Installation Instructions
+----------------------------------
+Just run:
+
+::
+
+   pip3 install npcompare
+
+Or download the tar file in https://pypi.python.org/pypi/npcompare, untar and run:
+::
+
+   python3 setup.py install
+
+
+Quick code examples
+----------------------------------
+
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    compare_example
 
+
+Full modules documentation
+----------------------------------
 * :ref:`modindex`
