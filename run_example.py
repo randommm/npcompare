@@ -25,10 +25,14 @@ import scipy.stats as stats
 posterior1n = np.random.normal(0, 0.1, size=120)
 posterior2n = np.random.normal(1, 0.1, size=100)
 
-res1 = npc.compare(stats.norm.pdf, stats.norm.pdf,
-                  posterior1n, posterior2n, 1000, a=-300, b=300)
-print(res1.mean())
-
+comp1 = npc.Compare(stats.norm.pdf, stats.norm.pdf,
+                    posterior1n, posterior2n, a=-300, b=300)
+comp1.sample(200)
+print(comp1.msamples.mean())
+print(len(comp1))
+comp1.sample(150)
+print(comp1.msamples.mean())
+print(len(comp1))
 
 #Two dimensional parameter example:
 #Suppose now these are your posterior obtained from MCMC
@@ -45,5 +49,6 @@ posterior2b = np.column_stack((posterior2bAlpha, posterior2bBeta))
 def f(x, params):
   return stats.beta.pdf(x, params[0], params[1])
 
-res2 = npc.compare(f, f, posterior1b, posterior2b, 1000, a=0, b=1)
-print(res2.mean())
+comp2 = npc.Compare(f, f, posterior1b, posterior2b, a=0, b=1)
+comp2.sample(300)
+print(comp2.msamples.mean())

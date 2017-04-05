@@ -17,9 +17,7 @@
 from ._globals import *
 from scipy.integrate import quad
 
-def compare(f1, f2, samples1, samples2, n_sim=1000,
-            weights1=None, weights2=None, metric=None,
-            a=0, b=1, printstatus=100):
+class Compare:
   """Compare two samples.
 
   Parameters
@@ -27,13 +25,11 @@ def compare(f1, f2, samples1, samples2, n_sim=1000,
   f1: log-likelihood for the first population
   f2: log-likelihood for the second population
 
-  samples1: must be either a one dimensional numpy.array (in which case, each element will be passed one at a time to f1) or numpy matrix or two dimensional numpy.array (in which case, each row will be be passed one at a time to f1).
-  samples2: analog to samples1.
+  psamples1: must be either a one dimensional numpy.array (in which case, each element will be passed one at a time to f1) or numpy matrix or two dimensional numpy.array (in which case, each row will be be passed one at a time to f1).
+  psamples2: analog to psamples1.
 
-  weights1: Give weights to posterior samples1. Set to None if each posterior sample has the same weight (the usual case for MCMC methods).
+  weights1: Give weights to posterior psamples1. Set to None if each posterior sample has the same weight (the usual case for MCMC methods).
   weights2: analog to weights2.
-
-  n_sim: number of simulations to be draw.
 
   metric:
     The metric function to be used
@@ -44,28 +40,55 @@ def compare(f1, f2, samples1, samples2, n_sim=1000,
 
   a: lower integration limit passed to default metric function
   b: upper integration limit passed to default metric function
-  printstatus: interval of samples to print the amount of samples obtained so far.
-    Set to 0 to disable printing.
+  """
+  def __init__(self, f1, f2, psamples1, psamples2, a=0, b=1,
+               weights1=None, weights2=None, metric=None):
+    self.f1 = f1
+    self.f2 = f2
+    self.psamples1 = np.array(psamples1, copy=True)
+    self.psamples2 = np.array(psamples2, copy=True)
+    self.weights1 = weights1
+    self.weights2 = weights2
+    if metric == None:
+      def metric (f1, f2, param1, param2):
+        return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
+                               a, b)[0]
 
-  Returns
-  -------
-  numpy.array of samples of the metric."""
-  if metric == None:
-    def metric(f1, f2, param1, param2):
-      return quad(lambda x: (f1(x, param1) - f2(x, param2))**2, a, b)[0]
+    self.metric = metric
 
-  result = np.empty(n_sim)
-  samples1 = np.array(samples1, copy=True)
-  samples2 = np.array(samples2, copy=True)
-  samples1_index = np.random.choice(np.arange(samples1.shape[0]), n_sim, p=weights1)
-  samples2_index = np.random.choice(np.arange(samples2.shape[0]), n_sim, p=weights2)
+    self.msamples = np.array([], dtype=np.float64)
 
-  samples1 = samples1[samples1_index]
-  samples2 = samples2[samples2_index]
-  for i in range(n_sim):
-    result[i] = metric(f1, f2, samples1[i], samples2[i])
-    if (printstatus):
-      if (not i%printstatus):
-        print(i, "samples generated")
+  def __len__(self):
+     return self.msamples.size
 
-  return result
+  def sample(self, n_sim=1000, printstatus=100):
+    """Compare two samples.
+
+    Parameters
+    ----------
+    n_sim: number of simulations to be draw.
+    printstatus: interval of samples to print the amount of
+      samples obtained so far.
+      Set to 0 to disable printing.
+
+    Returns
+    -------
+    None"""
+    result = np.empty(n_sim)
+    psamples1_index = \
+      np.random.choice(np.arange(self.psamples1.shape[0]),
+      n_sim, p=self.weights1)
+    psamples2_index = \
+      np.random.choice(np.arange(self.psamples2.shape[0]),
+      n_sim, p=self.weights2)
+
+    psamples1 = self.psamples1[psamples1_index]
+    psamples2 = self.psamples2[psamples2_index]
+    for i in range(n_sim):
+      result[i] = self.metric(self.f1, self.f2,
+                              psamples1[i], psamples2[i])
+      if (printstatus):
+        if (not i%printstatus):
+          print(i, "samples generated")
+
+    self.msamples = np.hstack([self.msamples, result])

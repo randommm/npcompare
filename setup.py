@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='npcompare',
-      version='0.1',
+      version='0.2',
       description='Nonparametric methods for density estimation and comparison',
       author='Marco Inacio',
       author_email='pythonpackages@marcoinacio.com',
