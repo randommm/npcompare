@@ -29,9 +29,12 @@ Quick code examples
    compare_example
 
 
-Full modules documentation
+Full package documentation
 ----------------------------------
-* :ref:`modindex`
+.. toctree::
+   :maxdepth: 4
+
+   npcompare
 
 
 Github repository

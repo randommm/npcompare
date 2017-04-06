@@ -1,5 +1,5 @@
 #----------------------------------------------------------------------
-# Copyright 2017 Marco Inacio <npcompare@marcoinacio.com>
+# Copyright 2017 Marco Inacio <pythonpackages@marcoinacio.com>
 #
 #This program is free software: you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
@@ -15,14 +15,28 @@
 #----------------------------------------------------------------------
 
 from ._globals import *
-from numpy import sqrt, sin, cos, pi
 
-def calculate_basis(z, max_):
-  x = np.array(z, copy=True)
-  results = np.matrix(np.empty((len(x), max_)), copy=True)
+
+def fourierseries(x, ncomponents):
+  """Calculate Fourier Series Expansion.
+
+  Parameters
+  ----------
+  x : 1D numpy.array, list or tuple of numbers to calculate
+    fourier series expansion
+  ncomponents : number of components of the series
+
+  Returns
+  ----------
+  numpy.matrix where each line is the Fourier series expansion of each
+   component of x.
+  """
+  from numpy import sqrt, sin, cos, pi
+  x = np.array(x, copy=True)
+  results = np.matrix(np.empty((len(x), ncomponents)), copy=True)
 
   for i in range(len(x)):
-    for j in range(max_):
+    for j in range(ncomponents):
       if j%2 == 0:
         results[i, j] = sqrt(2) * sin((j+2) * pi * x[i])
       else:

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 #import get_plots
-from .compare import Compare
-from .calculate_basis import calculate_basis
+from npcompare.compare import Compare
+from npcompare.fourierseries import fourierseries
+from npcompare.estimate import Estimate
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"

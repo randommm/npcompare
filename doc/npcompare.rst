@@ -1,30 +1,13 @@
-npcompare package
+Package documentation
 =================
 
-Submodules
-----------
-
-npcompare\.calculate\_basis module
-----------------------------------
-
-.. automodule:: npcompare.calculate_basis
+.. autoclass:: npcompare.Compare
     :members:
-    :undoc-members:
     :show-inheritance:
 
-npcompare\.compare module
--------------------------
-
-.. automodule:: npcompare.compare
+.. autoclass:: npcompare.Estimate
     :members:
-    :undoc-members:
     :show-inheritance:
 
+.. autofunction:: npcompare.fourierseries
 
-Module contents
----------------
-
-.. automodule:: npcompare
-    :members:
-    :undoc-members:
-    :show-inheritance:
