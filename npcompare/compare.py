@@ -46,10 +46,10 @@ class Compare:
                weights1=None, weights2=None, metric=None):
     self.f1 = f1
     self.f2 = f2
-    self.psamples1 = np.array(psamples1, copy=True)
-    self.psamples2 = np.array(psamples2, copy=True)
-    self.weights1 = weights1
-    self.weights2 = weights2
+    self.psamples1 = np.array(psamples1)
+    self.psamples2 = np.array(psamples2)
+    self.weights1 = np.array(weights1)
+    self.weights2 = np.array(weights2)
     if metric == None:
       try:
         from scipy.integrate import quad
@@ -66,14 +66,14 @@ class Compare:
   def __len__(self):
      return self.msamples.size
 
-  def sample(self, nsim=1000, printstatus=100):
+  def sample(self, niter=1000, refresh=100):
     """
     Compare two samples.
 
     Parameters
     ----------
-    nsim : number of simulations to be draw.
-    printstatus : interval of samples to print the amount of
+    niter : number of simulations to be draw.
+    refresh : interval of samples to print the amount of
       samples obtained so far.
       Set to 0 to disable printing.
 
@@ -81,26 +81,26 @@ class Compare:
     -------
     None
     """
-    result = np.empty(nsim)
+    result = np.empty(niter)
     psamples1_index = \
       np.random.choice(np.arange(self.psamples1.shape[0]),
-      nsim, p=self.weights1)
+      niter, p=self.weights1)
     psamples2_index = \
       np.random.choice(np.arange(self.psamples2.shape[0]),
-      nsim, p=self.weights2)
+      niter, p=self.weights2)
 
     psamples1 = self.psamples1[psamples1_index]
     psamples2 = self.psamples2[psamples2_index]
-    for i in range(nsim):
+    for i in range(niter):
       result[i] = self.metric(self.f1, self.f2,
                               psamples1[i], psamples2[i])
-      if (printstatus):
-        if (not i%printstatus):
+      if (refresh):
+        if (not i%refresh):
           print(i, "samples generated")
 
     self.msamples = np.hstack([self.msamples, result])
 
-  def plot(self, ax=None, show=True, *args, **kwargs):
+  def plot(self, ax=None, pltshow=True, **kwargs):
     """
     Plot empirical CDF of metric samples.
 
@@ -108,7 +108,6 @@ class Compare:
     ----------
     ax : axxs to plot, defaults to axes of a new figure
     show : if True, calls matplotlib.pyplot plt.show() at end
-    *args : aditional arguments passed to matplotlib.axes.Axes.step
     **kwargs : aditional named arguments passed to
       matplotlib.axes.Axes.step
 
@@ -125,9 +124,8 @@ class Compare:
     smsamples = np.sort(self.msamples)
     if not ax:
       ax = plt.figure().add_subplot(111)
-    ax.step(smsamples, np.arange(len(self)) / len(self),
-            *args, **kwargs)
-    if show:
+    ax.step(smsamples, np.arange(len(self)) / len(self), **kwargs)
+    if pltshow:
       plt.show()
     return ax
 

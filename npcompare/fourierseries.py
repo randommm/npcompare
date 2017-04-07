@@ -32,8 +32,8 @@ def fourierseries(x, ncomponents):
    component of x.
   """
   from numpy import sqrt, sin, cos, pi
-  x = np.array(x, copy=True)
-  results = np.matrix(np.empty((len(x), ncomponents)), copy=True)
+  x = np.array(x)
+  results = np.array(np.empty((len(x), ncomponents)))
 
   for i in range(len(x)):
     for j in range(ncomponents):

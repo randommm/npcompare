@@ -3,8 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-npcompare documentation
+Python package ``npcompare``
 =====================================
+
+Nonparametric methods for density estimation and comparison (proposed by Marco Inacio. 2017. Comparing two populations using Bayesian Fourier series density estimation. University of São Paulo and UFSCar. Masters Thesis).
+
+The package is still in alpha version, more functions and information will be available soon.
 
 Installation Instructions
 ----------------------------------
@@ -40,4 +44,5 @@ Full package documentation
 Github repository
 ----------------------------------
 
-https://github.com/randommm/npcompare
+* https://github.com/randommm/npcompare
+

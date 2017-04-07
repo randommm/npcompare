@@ -1,13 +1,7 @@
-Package documentation
+npcompare package
 =================
 
-.. autoclass:: npcompare.Compare
+.. automodule:: npcompare
     :members:
+    :undoc-members:
     :show-inheritance:
-
-.. autoclass:: npcompare.Estimate
-    :members:
-    :show-inheritance:
-
-.. autofunction:: npcompare.fourierseries
-
