@@ -1,5 +1,5 @@
-npcompare package
-=================
+npcompare package documentation
+===============================
 
 .. automodule:: npcompare
     :members:

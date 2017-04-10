@@ -28,14 +28,14 @@ def fourierseries(x, ncomponents):
 
   Returns
   ----------
-  numpy.matrix where each line is the Fourier series expansion of each
+  2D numpy.array where each line is the Fourier series expansion of each
    component of x.
   """
   from numpy import sqrt, sin, cos, pi
-  x = np.array(x)
-  results = np.array(np.empty((len(x), ncomponents)))
+  x = np.array(x, ndmin=1)
+  results = np.array(np.empty((x.size, ncomponents)))
 
-  for i in range(len(x)):
+  for i in range(x.size):
     for j in range(ncomponents):
       if j%2 == 0:
         results[i, j] = sqrt(2) * sin((j+2) * pi * x[i])

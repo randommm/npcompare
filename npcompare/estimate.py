@@ -25,8 +25,6 @@ def invlogit(x):
 
 class EstimateBFS:
   """
-  Attention: this class requires a patched version of pystan.
-
   Estimate univariate density using Bayesian Fourier Series
   with a sieve prior. This method only works with data the lives in
   [0, 1], however, the class implements methods to automatically
@@ -51,9 +49,9 @@ class EstimateBFS:
     the fact that inverse logit starts getting (computationally) very
     close to 1 (or 0) after 10 (or -10).
 
-    dict {"transf": "fixed", "vmin": vmin, "vmax": vmax} for fixed value
-    transformation, where vmin and vmax are the minimun and maximum
-    values of the sample space (for `obs`), respectivelly.
+    dictionary {"transf": "fixed", "vmin": vmin, "vmax": vmax} for fixed
+    value transformation, where vmin and vmax are the minimun and
+    maximum values of the sample space (for `obs`), respectivelly.
 
     A user defined transformation function with a dict with elements
     `transf`, `itransf` and `laditransf`, where `transf` is a function
@@ -63,7 +61,7 @@ class EstimateBFS:
   """
   def __init__(self, obs=None, nmaxcomp=10, hpp=1, hpgamma=0,
                gridsize=1000, transformation=None):
-    self.obs = np.array(obs)
+    self.obs = np.array(obs, ndmin=1)
     self._dp = np.linspace(0, 1, gridsize)
 
     if transformation:
@@ -96,9 +94,9 @@ class EstimateBFS:
 
     self.transformation = transformation
     self.phi = fourierseries(self.itobs, nmaxcomp)
-    self.phidp = fourierseries(self._dp, nmaxcomp)
+    self._phidp = fourierseries(self._dp, nmaxcomp)
     self.nmaxcomp = nmaxcomp
-    self.nobs = len(self.obs)
+    self.nobs = self.obs.size
     self.hpp = hpp
     self.hpgamma = hpgamma
     self.modeldata = dict(nobs=self.nobs, phi=self.phi, hpp=hpp,
@@ -107,7 +105,7 @@ class EstimateBFS:
     self.sfit = None
 
   def __len__(self):
-     return self.samples.size
+     return self.beta.shape[0]
 
   def sample(self, niter=1000, nchains=4, njobs=-1, **kwargs):
     """
@@ -126,7 +124,6 @@ class EstimateBFS:
     -------
     None
     """
-    print('Attention: this class requires a patched version of pystan.')
     try:
       import pystan
     except ImportError:
@@ -149,44 +146,96 @@ class EstimateBFS:
 
     self.beta = self.sfit.extract("beta")["beta"]
     self.nsim = self.beta.shape[0]
-    self.log_norm_const = \
-      self.sfit.extract("log_norm_const")["log_norm_const"]
+    self.lognormconst = \
+      self.sfit.extract("lognormconst")["lognormconst"]
     self.weights = self.sfit.extract("weights")["weights"]
     self.probcomp = self.sfit.extract("weights")["weights"].mean(0)
+
     self.logposteriorindivmean =\
-      np.empty((self.nmaxcomp, len(self.phidp)))
-
-    temp = np.empty(self.nsim)
+      np.empty((self.nmaxcomp, self._dp.size))
     for i in range(self.nmaxcomp):
-      for j in range(len(self._dp)):
-        for k in range(self.nsim):
-          temp[k] = sum(self.phidp[j, 0:i] * self.beta[k, 0:i, i]) \
-            - self.log_norm_const[k, i]
+      self.logposteriorindivmean[i, :] =\
+        self.__predictdensityindiv(self._dp, self._phidp,
+                                  self.transformation, i)
 
-        #get log of average of exponential of the log-likelihood for
-        #each posterior simulation.
-        maxtemp = temp.max()
-        temp -= maxtemp
-        temp = np.exp(temp)
-        avgtemp = np.average(temp, weights=self.weights[:, i])
-        avgtemp = np.log(avgtemp)
-        avgtemp += maxtemp
-        self.logposteriorindivmean[i, j] = avgtemp
+    self.logposteriormixmean =\
+      self.__predictdensitymix(self.logposteriorindivmean)
 
-    if self.transformation:
-      self.logposteriorindivmean += self.laditransf(self._dp)
+    self.posteriormixmean = np.exp(self.logposteriormixmean)
+    self.posteriorindivmean = np.exp(self.logposteriorindivmean)
 
-    prefpm = np.array(self.logposteriorindivmean)
+  def __predictdensityindiv(self, edp, phiedp, transformed, i):
+    evlogposteriorindivmean = np.empty(edp.size)
+    temp = np.empty(self.nsim)
+    for j in range(edp.size):
+      for k in range(self.nsim):
+        temp[k] = sum(phiedp[j, 0:i] * self.beta[k, 0:i, i]) \
+          - self.lognormconst[k, i]
+
+      #get log of average of exponential of the log-likelihood for
+      #each posterior simulation.
+      maxtemp = temp.max()
+      temp -= maxtemp
+      temp = np.exp(temp)
+      avgtemp = np.average(temp, weights=self.weights[:, i])
+      avgtemp = np.log(avgtemp)
+      avgtemp += maxtemp
+      evlogposteriorindivmean[j] = avgtemp
+
+    if transformed:
+      evlogposteriorindivmean += self.laditransf(edp)
+
+    return evlogposteriorindivmean
+
+  def __predictdensitymix(self, evlogposteriorindivmean):
+    prefpm = np.array(evlogposteriorindivmean)
     maxprefpm = prefpm.max(axis=0)
     prefpm -= maxprefpm
     prefpm = np.exp(prefpm)
     prefpm = np.average(prefpm, axis=0, weights=self.probcomp)
     prefpm = np.log(prefpm)
     prefpm += maxprefpm
-    self.logposteriormixmean = prefpm
+    evlogposteriormixmean = prefpm
+    return evlogposteriormixmean
 
-    self.posteriormixmean = np.exp(self.logposteriormixmean)
-    self.posteriorindivmean = np.exp(self.logposteriorindivmean)
+  def predictdensity(self, points, transformed=True, component=None):
+    """
+    Predict posterior density for estimated model.
+
+    Parameters
+    ----------
+    points : scalar or 1D numpy array of points where density will be
+      evaluated
+    transformed : True (default) if `points` live in the sample space
+      of your inputted data. `False` if your `points` live in the
+      sample space of Bayesian Fourier Series sample space ([0, 1]).
+    component : which individual component of the mixture to use.
+      Defaults to full mixture with posterior with sieve prior
+      (strongly recomended).
+
+    Returns
+    -------
+    Numpy 1D array of predicted components
+    """
+    points = np.array(points, ndmin=1) #ndmin to allow call to quad
+    if not self.transformation:
+      transformed = False
+    if component:
+      phipoints = fourierseries(points, component)
+      return np.exp(self.__predictdensityindiv(points, phipoints,
+                                              transformed, component))
+
+    phipoints = fourierseries(points, self.nmaxcomp)
+    usrlogposteriorindivmean =\
+      np.empty((self.nmaxcomp, points.size))
+    for i in range(self.nmaxcomp):
+       usrlogposteriorindivmean[i, :] =\
+         self.__predictdensityindiv(points, phipoints, transformed, i)
+
+    usrlogposteriormixmean =\
+      self.__predictdensitymix(usrlogposteriorindivmean)
+
+    return np.exp(usrlogposteriormixmean)
 
   def plot(self, ax=None, pltshow=True, component=None, **kwargs):
     """
@@ -226,7 +275,7 @@ class EstimateBFS:
   _modelcode = \
   """
   functions {
-    real lkk(real x, vector beta) {
+    real lkk(real x, real[] beta) {
       real result_;
       result_ = 0;
       for (i in 1:num_elements(beta)) {
@@ -238,24 +287,10 @@ class EstimateBFS:
 
       return exp(result_ * sqrt2());
     }
-    real glkk(real x, vector beta, int n) {
-      real result_;
-      result_ = 0;
-      for (i in 1:num_elements(beta)) {
-        if (i % 2 == 0)
-          result_ = result_ + beta[i] * cos(i * pi() * x);
-        else
-          result_ = result_ + beta[i] * sin((i + 1) * pi() * x);
-      }
-
-      if (n % 2 == 0)
-        result_ = exp(result_ * sqrt2()) *
-                   sqrt2() * cos(n * pi() * x);
-      else
-        result_ = exp(result_ * sqrt2()) *
-                   sqrt2() * sin((n + 1) * pi() * x);
-
-      return result_;
+    real[] integ(real x, real[] f, real[] beta, real[] x_r, int[] x_i) {
+      real dfdx[1];
+      dfdx[1] = lkk(x, beta);
+      return dfdx;
     }
   }
   data {
@@ -266,6 +301,8 @@ class EstimateBFS:
     real<lower=0> hpgamma;
   }
   transformed data {
+    real x_r[0];
+    int x_i[0];
     real minus_hpp_minus_half;
     real minus_hpgamma_times_i[nmaxcomp];
     minus_hpp_minus_half = -hpp - 0.5;
@@ -277,12 +314,14 @@ class EstimateBFS:
   }
   transformed parameters {
     vector[nmaxcomp] lp;
-    real log_norm_const[nmaxcomp];
+    real lognormconst[nmaxcomp];
     for (i in 1:nmaxcomp) {
-      log_norm_const[i] =
-        log(integrate_1d_grad(lkk, glkk, 0, 1, beta[1:i, i]));
+      lognormconst[i] =
+        log(integrate_ode_rk45(integ, {0.0}, 0, {1.0},
+                               to_array_1d(beta[1:i, i]),
+                               x_r, x_i, 1.49e-08, 1.49e-08, 1e7)[1,1]);
       lp[i] = sum(phi[, 1:i] * beta[1:i, i])
-              - nobs * log_norm_const[i]
+              - nobs * lognormconst[i]
               + minus_hpgamma_times_i[i];
     }
   }
