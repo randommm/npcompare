@@ -22,8 +22,8 @@ class Compare:
 
   Parameters
   ----------
-  f1 : log-likelihood for the first population.
-  f2 : log-likelihood for the second population.
+  f1 : likelihood function for the first population.
+  f2 : likelihood function for the second population.
   psamples1 : must be either a one dimensional numpy.array
     (in which case, each element will be passed one at a time to f1)
     or numpy matrix or two dimensional numpy.array (in which case,
@@ -119,7 +119,7 @@ class Compare:
       import matplotlib.pyplot as plt
     except ImportError:
       raise ImportError('matplotlib package required to plot')
-    if len(self) == 0:
+    if len(self.msamples) == 0:
       return "No metric samples to plot"
     smsamples = np.sort(self.msamples)
     if not ax:

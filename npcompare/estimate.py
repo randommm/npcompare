@@ -46,7 +46,6 @@ class EstimateBFS:
     self.hpgamma = hpgamma
     self.modeldata = dict(nobs=self.nobs, phi=self.phi, hpp=hpp,
                           nmaxcomp=nmaxcomp, hpgamma=hpgamma)
-    self.compare = None
     self.probcomp = None
     self.sfit = None
 
@@ -85,29 +84,52 @@ class EstimateBFS:
                                      chains=nchains, iter=niter,
                                      **kwargs)
 
+    self.__processfit()
+
+  def __processfit(self):
+    if not self.sfit:
+      Exception("This function cannot be called before obj.sample")
+
     self.beta = self.sfit.extract("beta")["beta"]
     self.nsim = self.beta.shape[0]
     self.log_norm_const = \
       self.sfit.extract("log_norm_const")["log_norm_const"]
     self.weights = self.sfit.extract("weights")["weights"]
     self.probcomp = self.sfit.extract("weights")["weights"].mean(0)
-    self.indivposteriormean =\
+    self.logposteriorindivmean =\
       np.empty((self.nmaxcomp, len(self.phidp)))
 
     temp = np.empty(self.nsim)
     for i in range(self.nmaxcomp):
       for j in range(len(self.dp)):
         for k in range(self.nsim):
-          temp[k] = sum(self.phidp[j, 1:i] * self.beta[k, i, 1:i]) \
+          temp[k] = sum(self.phidp[j, 0:i] * self.beta[k, 0:i, i]) \
             - self.log_norm_const[k, i]
 
-        self.indivposteriormean[i, j] =\
-          np.average(temp, weights=self.weights[:, i])
+        #get log of average of exponential of the log-likelihood for
+        #each posterior simulation.
+        maxtemp = temp.max()
+        temp -= maxtemp
+        temp = np.exp(temp)
+        avgtemp = np.average(temp, weights=self.weights[:, i])
+        avgtemp = np.log(avgtemp)
+        avgtemp += maxtemp
+        self.logposteriorindivmean[i, j] = avgtemp
 
-    self.fullposteriormean = np.average(self.indivposteriormean, axis=0,
-                                        weights=self.probcomp)
+    prefpm = np.array(self.logposteriorindivmean)
+    maxprefpm = prefpm.max(axis=0)
+    prefpm -= maxprefpm
+    prefpm = np.exp(prefpm)
+    prefpm = np.average(prefpm, axis=0, weights=self.probcomp)
+    prefpm = np.log(prefpm)
+    prefpm += maxprefpm
+    self.logposteriormixmean = prefpm
 
-  def plot(self, ax=None, pltshow=True, *args, **kwargs):
+    self.posteriormixmean = np.exp(self.logposteriormixmean)
+    self.posteriorindivmean = np.exp(self.logposteriorindivmean)
+
+  def plot(self, ax=None, pltshow=True, component=None,
+           *args, **kwargs):
     """
     Plot samples.
 
@@ -115,6 +137,8 @@ class EstimateBFS:
     ----------
     ax : axxs to plot, defaults to axes of a new figure
     show : if True, calls matplotlib.pyplot plt.show() at end
+    component : Which individual component to plot. Defaults to full
+      posterior with sieve prior (mixture of individual components).
     *args : aditional arguments passed to matplotlib.axes.Axes.step
     **kwargs : aditional named arguments passed to
       matplotlib.axes.Axes.step
@@ -124,10 +148,21 @@ class EstimateBFS:
     matplotlib.axes.Axes object
     """
     try:
-      import matplotlib.pyplot
+      import matplotlib.pyplot as plt
     except ImportError:
       raise ImportError('matplotlib package required to plot')
-
+    if not self.sfit:
+      return "No samples to plot."
+    if not component:
+      ytoplot = self.posteriormixmean
+    else:
+      ytoplot = self.posteriorindivmean[component, :]
+    if not ax:
+      ax = plt.figure().add_subplot(111)
+    ax.plot(self.dp, ytoplot, **kwargs)
+    if pltshow:
+      plt.show()
+    return ax
 
   __modelcode = \
   """
