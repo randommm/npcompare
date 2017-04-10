@@ -17,12 +17,21 @@
 from ._globals import *
 from npcompare.fourierseries import fourierseries
 
+def logit(x):
+  return - np.log(1 / x - 1)
+
+def invlogit(x):
+  return 1 / (1 + np.exp(-x))
+
 class EstimateBFS:
   """
   Attention: this class requires a patched version of pystan.
 
   Estimate univariate density using Bayesian Fourier Series
-  with a sieve prior
+  with a sieve prior. This method only works with data the lives in
+  [0, 1], however, the class implements methods to automatically
+  transform user inputted data to [0, 1]. See parameter `transform`
+  below.
 
   Parameters
   ----------
@@ -31,16 +40,64 @@ class EstimateBFS:
     expansion.
   hpp : hiperparameter p (defaults to "conservative" value of 1).
   hpgamma : hiperparameter p (defaults to "conservative" value of 0).
-  """
-  smodel = None
-  dp = np.arange(1001)/1000
+  gridsize : size of the grid of variables for which we'll calculate the
+    predicted values of the density (after posterior is finished
+    sampling).
+  transform : transformation function to use. Can be either:
 
-  def __init__(self, obs=None, nmaxcomp=10, hpp=1, hpgamma=0):
-    obs = np.array(obs)
-    self.phi = fourierseries(obs, nmaxcomp)
-    self.phidp = fourierseries(self.dp, nmaxcomp)
-    self.nmaxcomp = nmaxcomp
+    string "logit" to use logit transformation. Usefull if the sample
+    space is the real line. However the `obs` must actually assume
+    only low values like, for example, between [-5, 5], this is due to
+    the fact that inverse logit starts getting (computationally) very
+    close to 1 (or 0) after 10 (or -10).
+
+    dict {"transf": "fixed", "vmin": vmin, "vmax": vmax} for fixed value
+    transformation, where vmin and vmax are the minimun and maximum
+    values of the sample space (for `obs`), respectivelly.
+
+    A user defined transformation function with a dict with elements
+    `transf`, `itransf` and `laditransf`, where `transf` is a function
+    that transforms [0, 1] to sample space, `itransf` is its inverse,
+    and `laditransf` is the log absolute derivative of `itransf`.
+    These 3 functions must accept and return numpy 1D arrays.
+  """
+  def __init__(self, obs=None, nmaxcomp=10, hpp=1, hpgamma=0,
+               gridsize=1000, transformation=None):
     self.obs = np.array(obs)
+    self._dp = np.linspace(0, 1, gridsize)
+
+    if transformation:
+      if transformation == "logit":
+        self.transf = lambda x: - np.log(1 / x - 1) #logit
+        self.itransf = lambda x: 1 / (1 + np.exp(-x)) #invlogit
+        logoftwo = np.log(2)
+        self.laditransf = \
+          lambda x: - np.logaddexp(logoftwo, np.logaddexp(x, -x))
+      elif isinstance(transformation, dict):
+        if (transformation["transf"] == "fixed"):
+          vmax = transformation["vmax"]
+          vmin = transformation["vmin"]
+          vmaxmvmin = vmax - vmin
+          livmaxmvmin = -np.log(vmaxmvmin)
+          self.transf = lambda x: vmaxmvmin * x + vmin
+          self.itransf = lambda x: (x - vmin) / vmaxmvmin
+          self.laditransf = lambda x: livmaxmvmin
+        else:
+          self.transf = transformation["transf"]
+          self.itransf = transformation["itransf"]
+          self.laditransf = transformation["laditransf"]
+      else:
+        Exception("Unrecognized parameter transformation")
+      self.gridpoints = self.transf(self._dp)
+      self.itobs = self.itransf(obs)
+    else:
+      self.gridpoints = self._dp
+      self.itobs = self.obs
+
+    self.transformation = transformation
+    self.phi = fourierseries(self.itobs, nmaxcomp)
+    self.phidp = fourierseries(self._dp, nmaxcomp)
+    self.nmaxcomp = nmaxcomp
     self.nobs = len(self.obs)
     self.hpp = hpp
     self.hpgamma = hpgamma
@@ -75,12 +132,12 @@ class EstimateBFS:
     except ImportError:
       raise ImportError('pystan package required for class Estimate')
 
-    if not self.smodel:
-      EstimateBFS.smodel = \
-        pystan.StanModel(model_code=self.__modelcode)
+    if not self._smodel:
+      EstimateBFS._smodel = \
+        pystan.StanModel(model_code=self._modelcode)
 
-    self.smodel = EstimateBFS.smodel
-    self.sfit = self.smodel.sampling(data=self.modeldata, n_jobs=njobs,
+    self._smodel = EstimateBFS._smodel
+    self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
                                      chains=nchains, iter=niter,
                                      **kwargs)
 
@@ -101,7 +158,7 @@ class EstimateBFS:
 
     temp = np.empty(self.nsim)
     for i in range(self.nmaxcomp):
-      for j in range(len(self.dp)):
+      for j in range(len(self._dp)):
         for k in range(self.nsim):
           temp[k] = sum(self.phidp[j, 0:i] * self.beta[k, 0:i, i]) \
             - self.log_norm_const[k, i]
@@ -116,6 +173,9 @@ class EstimateBFS:
         avgtemp += maxtemp
         self.logposteriorindivmean[i, j] = avgtemp
 
+    if self.transformation:
+      self.logposteriorindivmean += self.laditransf(self._dp)
+
     prefpm = np.array(self.logposteriorindivmean)
     maxprefpm = prefpm.max(axis=0)
     prefpm -= maxprefpm
@@ -128,8 +188,7 @@ class EstimateBFS:
     self.posteriormixmean = np.exp(self.logposteriormixmean)
     self.posteriorindivmean = np.exp(self.logposteriorindivmean)
 
-  def plot(self, ax=None, pltshow=True, component=None,
-           *args, **kwargs):
+  def plot(self, ax=None, pltshow=True, component=None, **kwargs):
     """
     Plot samples.
 
@@ -139,7 +198,6 @@ class EstimateBFS:
     show : if True, calls matplotlib.pyplot plt.show() at end
     component : Which individual component to plot. Defaults to full
       posterior with sieve prior (mixture of individual components).
-    *args : aditional arguments passed to matplotlib.axes.Axes.step
     **kwargs : aditional named arguments passed to
       matplotlib.axes.Axes.step
 
@@ -159,12 +217,13 @@ class EstimateBFS:
       ytoplot = self.posteriorindivmean[component, :]
     if not ax:
       ax = plt.figure().add_subplot(111)
-    ax.plot(self.dp, ytoplot, **kwargs)
+    ax.plot(self.gridpoints, ytoplot, **kwargs)
     if pltshow:
       plt.show()
     return ax
 
-  __modelcode = \
+  _smodel = None
+  _modelcode = \
   """
   functions {
     real lkk(real x, vector beta) {
