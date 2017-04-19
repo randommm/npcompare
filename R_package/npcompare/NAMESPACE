@@ -1,0 +1,4 @@
+import(reticulate)
+import(rstan)
+export(npCompare, npEstimateBFS, npLoad, npSave)
+exportClasses(npCompare, npEstimateBFS, npGeneric)

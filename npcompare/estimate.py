@@ -135,8 +135,8 @@ class EstimateBFS:
 
     self._smodel = EstimateBFS._smodel
     self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
-                                     chains=nchains, iter=niter,
-                                     **kwargs)
+                                      chains=nchains, iter=niter,
+                                      **kwargs)
 
     self.__processfit()
 

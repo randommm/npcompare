@@ -1,0 +1,10 @@
+Package: npcompare
+Type: Package
+Title: Nonparametric methods for density estimation and comparison.
+Version: 0.6
+Date: 2017-04-15
+Depends: rstan, reticulate
+Author: Marco Inacio
+Maintainer: Marco Inacio <rpackages@marcoinacio.com>
+Description: Nonparametric methods for density estimation and comparison (proposed by Marco Inacio. 2017. Comparing two populations using Bayesian Fourier series density estimation. University of Sao Paulo and UFSCar. Masters Thesis).
+License: GPL 3
