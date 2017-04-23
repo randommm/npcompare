@@ -1,7 +1,7 @@
 Package: npcompare
 Type: Package
 Title: Nonparametric methods for density estimation and comparison.
-Version: 0.6
+Version: 0.7
 Date: 2017-04-15
 Depends: rstan, reticulate
 Author: Marco Inacio

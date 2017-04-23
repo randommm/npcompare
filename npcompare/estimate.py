@@ -107,7 +107,8 @@ class EstimateBFS:
   def __len__(self):
      return self.beta.shape[0]
 
-  def sample(self, niter=1000, nchains=4, njobs=-1, **kwargs):
+  def sample(self, niter=1000, nchains=4, njobs=-1, tolrhat=0.02,
+             **kwargs):
     """
     Samples from posterior.
 
@@ -117,6 +118,9 @@ class EstimateBFS:
     nchains : number of MCMC chains.
     njobs : number of CPUs to be used in parallel. If -1 (default),
       all CPUs will be used.
+    tolrhat : maximum tolerable distance an Rhat of any sampled
+      parameter can have from 1 (we will resample model approximatedly
+      10% more iterations until this convergence criteria is met).
     **kwargs : aditional named arguments passed to pystan (e.g.:
       refresh parameter to configure sampler printing status).
 
@@ -131,14 +135,24 @@ class EstimateBFS:
 
     if not self._smodel:
       EstimateBFS._smodel = \
-        pystan.StanModel(model_code=self._modelcode)
+        pystan.StanModel(model_code=self._smodelcode)
 
-    self._smodel = EstimateBFS._smodel
-    self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
-                                      chains=nchains, iter=niter,
-                                      **kwargs)
+    while True:
+      self._smodel = EstimateBFS._smodel
+      self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
+                                        chains=nchains, iter=niter,
+                                        **kwargs)
+      irhat = self.sfit.summary()['summary_colnames'].index("Rhat")
+      drhat1 = max(abs(self.sfit.summary()["summary"][:, irhat] - 1))
+      if drhat1 < tolrhat:
+        break
+      niter += niter // 10
+      print("Model failed to converge given your tolrhat of ", tolrhat,
+            "; the observed maximum distance of an Rhat from 1 was ",
+            drhat1, "; retrying sampling with ", niter, "iterations")
 
     self.__processfit()
+    self.isgridevalued = False
 
   def __processfit(self):
     if not self.sfit:
@@ -150,6 +164,20 @@ class EstimateBFS:
       self.sfit.extract("lognormconst")["lognormconst"]
     self.weights = self.sfit.extract("weights")["weights"]
     self.probcomp = self.sfit.extract("weights")["weights"].mean(0)
+
+  def evalgrid(self):
+    """
+    Calculates posterior values at grid points so they can be used
+      later by methods like plot method or direct
+
+    Returns
+    -------
+    None
+    """
+    if not self.sfit:
+      Exception("This function cannot be called before obj.sample")
+
+    self.__processfit()
 
     self.logposteriorindivmean =\
       np.empty((self.nmaxcomp, self._dp.size))
@@ -163,6 +191,7 @@ class EstimateBFS:
 
     self.posteriormixmean = np.exp(self.logposteriormixmean)
     self.posteriorindivmean = np.exp(self.logposteriorindivmean)
+    self.isgridevalued = True
 
   def __predictdensityindiv(self, edp, phiedp, transformed, i):
     evlogposteriorindivmean = np.empty(edp.size)
@@ -223,14 +252,14 @@ class EstimateBFS:
     if component:
       phipoints = fourierseries(points, component)
       return np.exp(self.__predictdensityindiv(points, phipoints,
-                                              transformed, component))
+                                               transformed, component))
 
     phipoints = fourierseries(points, self.nmaxcomp)
     usrlogposteriorindivmean =\
       np.empty((self.nmaxcomp, points.size))
     for i in range(self.nmaxcomp):
-       usrlogposteriorindivmean[i, :] =\
-         self.__predictdensityindiv(points, phipoints, transformed, i)
+      usrlogposteriorindivmean[i, :] =\
+        self.__predictdensityindiv(points, phipoints, transformed, i)
 
     usrlogposteriormixmean =\
       self.__predictdensitymix(usrlogposteriorindivmean)
@@ -260,6 +289,8 @@ class EstimateBFS:
       raise ImportError('matplotlib package required to plot')
     if not self.sfit:
       return "No samples to plot."
+    if not self.isgridevalued:
+      return "Must call obj.evalgrid() first."
     if not component:
       ytoplot = self.posteriormixmean
     else:
@@ -272,7 +303,7 @@ class EstimateBFS:
     return ax
 
   _smodel = None
-  _modelcode = \
+  _smodelcode = \
   """
   functions {
     real lkk(real x, real[] beta) {
@@ -326,7 +357,7 @@ class EstimateBFS:
     }
   }
   model {
-    target += lp;
+    target += log_sum_exp(lp);
     for (i in 1:nmaxcomp) {
       if (i % 2 == 0)
         beta[i, ] ~ normal(0, i ^ minus_hpp_minus_half);

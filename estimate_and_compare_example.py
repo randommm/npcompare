@@ -15,6 +15,8 @@
 #You should have received a copy of the GNU General Public License
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
+import numpy as np
+import npcompare as npc
 
 densobj1 = np.random.beta(1, 1, 40)
 a = npc.EstimateBFS(densobj1)
