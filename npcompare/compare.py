@@ -14,7 +14,7 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
 
-from ._globals import *
+import numpy as np
 from npcompare.fourierseries import fourierseries
 
 class Compare:

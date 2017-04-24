@@ -5,6 +5,6 @@ from npcompare.compare import Compare
 from npcompare.fourierseries import fourierseries
 from npcompare.estimate import EstimateBFS
 
-__version__ = "0.7"
+__version__ = "0.8"
 
 __all__ = ["Compare", "EstimateBFS", "fourierseries"]

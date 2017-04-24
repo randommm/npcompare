@@ -14,8 +14,7 @@
 #along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
 
-from ._globals import *
-
+import numpy as np
 
 def fourierseries(x, ncomponents):
   """Calculate Fourier Series Expansion.
