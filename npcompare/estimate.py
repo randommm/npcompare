@@ -35,14 +35,14 @@ class EstimateBFS:
 
   Parameters
   ----------
-  obs : list/tuple or numpy.array 1D array of observations.
-  nmaxcomp : maximum number of components of the Fourier series
-    expansion.
-  hpp : hiperparameter p (defaults to "conservative" value of 1).
-  hpgamma : hiperparameter p (defaults to "conservative" value of 0).
-  gridsize : size of the grid of variables for which we'll calculate the
-    predicted values of the density (after posterior is finished
-    sampling).
+  obs: list/tuple or numpy.array 1D array of observations. If unset, the
+    constructor will not call method `fit`, and you will need to call it
+    manually later to configure your model data (this can be usefull
+    for using it with `scikit-learns` `GridSearchCV`).
+    nmaxcomp : maximum number of components of the Fourier series
+      expansion.
+  hpp : hyperparameter p (defaults to "conservative" value of 1).
+  hpgamma : hyperparameter p (defaults to "conservative" value of 0).
   transform : transformation function to use. Can be either:
 
     string "logit" to use logit transformation. Usefull if the sample
@@ -60,13 +60,53 @@ class EstimateBFS:
     that transforms [0, 1] to sample space, `itransf` is its inverse,
     and `laditransf` is the log absolute derivative of `itransf`.
     These 3 functions must accept and return numpy 1D arrays.
+  *kwargs: additional keyword arguments passed to method `fit`
   """
   def __init__(self, obs=None, nmaxcomp=10, hpp=1, hpgamma=0,
-               gridsize=1000, transformation=None):
-    self.obs = np.array(obs, ndmin=1)
-    self._dp = np.linspace(0, 1, gridsize)
+               transformation=None, **kwargs):
+    if not "niter" in kwargs:
+      kwargs["niter"] = 0
+    if obs is not None:
+      self.fit(obs, nmaxcomp, hpp, hpgamma, transformation, **kwargs)
+    else:
+      self.obs = None
 
-    if transformation:
+  def fit(self, obs, nmaxcomp=10, hpp=1, hpgamma=0,
+          transformation=None, niter=5000, **kwargs):
+    """
+    Configure object model data and automatically calls method
+      `sampleposterior` (to obtain MCMC samples from the posterior).
+
+    Parameters
+    ----------
+    obs : list/tuple or numpy.array 1D array of observations.
+    nmaxcomp : maximum number of components of the Fourier series
+      expansion.
+    hpp : hyperparameter p (defaults to "conservative" value of 1).
+    hpgamma : hyperparameter p (defaults to "conservative" value of 0).
+    transform : transformation function to use. Can be either:
+
+      string "logit" to use logit transformation. Usefull if the sample
+      space is the real line. However the `obs` must actually assume
+      only low values like, for example, between [-5, 5], this is due to
+      the fact that inverse logit starts getting (computationally) very
+      close to 1 (or 0) after 10 (or -10).
+
+      dictionary {"transf": "fixed", "vmin": vmin, "vmax": vmax} for fixed
+      value transformation, where vmin and vmax are the minimun and
+      maximum values of the sample space (for `obs`), respectivelly.
+
+      A user defined transformation function with a dict with elements
+      `transf`, `itransf` and `laditransf`, where `transf` is a function
+      that transforms [0, 1] to sample space, `itransf` is its inverse,
+      and `laditransf` is the log absolute derivative of `itransf`.
+      These 3 functions must accept and return numpy 1D arrays.
+    niter : number of iterations to sample. If set to False, then will
+      not call method `sample`.
+    **kwargs: additional keyword arguments passed to method `sample`.
+    """
+    #Work out transformation function
+    if transformation is not None:
       if transformation == "logit":
         self.transf = scipy.special.logit #logit
         self.itransf = scipy.special.expit #invlogit
@@ -74,7 +114,7 @@ class EstimateBFS:
         self.laditransf = \
           lambda x: - np.logaddexp(logoftwo, np.logaddexp(x, -x))
       elif isinstance(transformation, dict):
-        if (transformation["transf"] == "fixed"):
+        if transformation["transf"] == "fixed":
           vmax = transformation["vmax"]
           vmin = transformation["vmin"]
           vmaxmvmin = vmax - vmin
@@ -87,24 +127,33 @@ class EstimateBFS:
           self.itransf = transformation["itransf"]
           self.laditransf = transformation["laditransf"]
       else:
-        Exception("Unrecognized parameter transformation")
-      self.gridpoints = self.transf(self._dp)
-      self.itobs = self.itransf(obs)
-    else:
-      self.gridpoints = self._dp
-      self.itobs = self.obs
+        raise ValueError("Unrecognized parameter transformation")
 
+    #Save configuration parameters
     self.transformation = transformation
-    self.phi = fourierseries(self.itobs, nmaxcomp)
-    self._phidp = fourierseries(self._dp, nmaxcomp)
     self.nmaxcomp = nmaxcomp
-    self.nobs = self.obs.size
     self.hpp = hpp
     self.hpgamma = hpgamma
-    self.modeldata = dict(nobs=self.nobs, phi=self.phi, hpp=hpp,
-                          nmaxcomp=nmaxcomp, hpgamma=hpgamma)
     self.probcomp = None
     self.sfit = None
+
+    #process observations
+    self.obs = np.array(obs, ndmin=1)
+    self.nobs = self.obs.size
+    if self.transformation is not None:
+      self.itobs = self.itransf(obs)
+    else:
+      self.itobs = obs
+
+    self.phi = fourierseries(self.itobs, self.nmaxcomp)
+    self.modeldata = dict(nobs=self.nobs, phi=self.phi, hpp=self.hpp,
+                          nmaxcomp=self.nmaxcomp, hpgamma=self.hpgamma)
+
+    if niter != 0:
+      self.sampleposterior(niter, **kwargs)
+
+    return self
+
 
   def __len__(self):
      return self.beta.shape[0]
@@ -118,12 +167,15 @@ class EstimateBFS:
       import pystan
     except ImportError:
       raise ImportError('pystan package required for class Estimate')
+    if self.obs is None:
+      raise Exception('Data is not set, must call method fit first.')
 
-    if not self._smodel:
+    if self._smodel is None:
       EstimateBFS._smodel = \
         pystan.StanModel(model_code=self._smodelcode)
 
-  def sample(self, niter=1000, nchains=4, njobs=-1, tolrhat=0.02,
+
+  def sampleposterior(self, niter=5000, nchains=4, njobs=-1, tolrhat=0.02,
              **kwargs):
     """
     Samples from posterior.
@@ -137,7 +189,7 @@ class EstimateBFS:
     tolrhat : maximum tolerable distance an Rhat of any sampled
       parameter can have from 1 (we will resample model approximatedly
       10% more iterations until this convergence criteria is met).
-    **kwargs : aditional named arguments passed to pystan (e.g.:
+    **kwargs : aditional keyword arguments passed to pystan (e.g.:
       refresh parameter to configure sampler printing status).
 
     Returns
@@ -165,8 +217,9 @@ class EstimateBFS:
 
   def __processfit(self):
     if not self.sfit:
-      Exception("This function cannot be called before obj.sample()")
+      Exception("This function cannot be called before obj.sampleposterior()")
 
+    #Code commented due to some weird bug on pystan.extract
     #self.beta = self.sfit.extract("beta")["beta"]
     #self.lognormconst = \
       #self.sfit.extract("lognormconst")["lognormconst"]
@@ -207,33 +260,65 @@ class EstimateBFS:
     self.nsim = nsim
     self.probcomp = self.weights.mean(0)
 
-  def evalgrid(self):
+  def evalgrid(self, gridsize=1000):
     """
-    Calculates posterior values at grid points so they can be used
-      later by methods like plot method or direct
+    Calculates posterior estimated mean density value at grid points so
+      they can be used later by method plot or directly by the user.
+
+    Parameters
+    ----------
+    gridsize : size of the grid.
 
     Returns
     -------
     None
-    """
-    self.__processfit()
 
-    self.logposteriorindivmean =\
-      np.empty((self.nmaxcomp, self._dp.size))
+    Notes
+    -----
+    The grid points are stored in the instance variable `gridpoints`.
+    Log densities for individual components are stored in the instance
+      variable `logdensityindivmean`.
+    Densities for individual components are stored in the instance
+      variable `densityindivmean`.
+    Log densities for full mixture of components are stored in the
+      instance variable `logdensitymixmean`.
+    Densities for full mixture of components are stored in the instance
+      variable `densitymixmean`.
+
+    """
+    if self.obs is None:
+      raise Exception('Data is not set, must call method fit first.')
+
+    #Construct density evaluation points for method evalgrid
+    self.gridpoints_internal_bfs = np.linspace(0, 1, gridsize)
+    self.gridpoints_internal_bfs[0] += 1.0 / 1e10 / gridsize
+    self.gridpoints_internal_bfs[-1] -= 1.0 / 1e10 / gridsize
+    phidp = fourierseries(self.gridpoints_internal_bfs, self.nmaxcomp)
+    if self.transformation is not None:
+      self.gridpoints = self.transf(self.gridpoints_internal_bfs)
+    else:
+      self.gridpoints = self.gridpoints_internal_bfs
+
+    #Empty var to store results
+    self.logdensityindivmean =\
+      np.empty((self.nmaxcomp, self.gridpoints.size))
+
+    #Eval individual components
     for i in range(self.nmaxcomp):
-      self.logposteriorindivmean[i, :] =\
-        self.__predictdensityindiv(self.gridpoints, self._phidp,
+      self.logdensityindivmean[i, :] =\
+        self.__predictdensityindiv(self.gridpoints, phidp,
                                    self.transformation, i)
 
-    self.logposteriormixmean =\
-      self.__predictdensitymix(self.logposteriorindivmean)
+    #Eval mix density
+    self.logdensitymixmean =\
+      self.__predictdensitymix(self.logdensityindivmean)
 
-    self.posteriormixmean = np.exp(self.logposteriormixmean)
-    self.posteriorindivmean = np.exp(self.logposteriorindivmean)
+    self.densitymixmean = np.exp(self.logdensitymixmean)
+    self.densityindivmean = np.exp(self.logdensityindivmean)
     self.isgridevalued = True
 
   def __predictdensityindiv(self, tedp, phiedp, transformed, i):
-    evlogposteriorindivmean = np.empty(tedp.size)
+    evlogdensityindivmean = np.empty(tedp.size)
     temp = np.empty(self.nsim)
     for j in range(tedp.size):
       temp = (phiedp[j, 0:i] * self.beta[:, 0:i, i]).sum(1) \
@@ -247,26 +332,50 @@ class EstimateBFS:
       avgtemp = np.average(temp, weights=self.weights[:, i])
       avgtemp = np.log(avgtemp)
       avgtemp += maxtemp
-      evlogposteriorindivmean[j] = avgtemp
+      evlogdensityindivmean[j] = avgtemp
 
     if transformed:
-      evlogposteriorindivmean += self.laditransf(tedp)
+      evlogdensityindivmean += self.laditransf(tedp)
 
-    return evlogposteriorindivmean
+    return evlogdensityindivmean
 
-  def __predictdensitymix(self, evlogposteriorindivmean):
-    prefpm = np.array(evlogposteriorindivmean)
+  def __predictdensitymix(self, evlogdensityindivmean):
+    prefpm = np.array(evlogdensityindivmean)
     maxprefpm = prefpm.max(axis=0)
     prefpm -= maxprefpm
     prefpm = np.exp(prefpm)
     prefpm = np.average(prefpm, axis=0, weights=self.probcomp)
     prefpm = np.log(prefpm)
     prefpm += maxprefpm
-    evlogposteriormixmean = prefpm
-    return evlogposteriormixmean
+    evlogdensitymixmean = prefpm
+    return evlogdensitymixmean
 
-  def predictdensity(self, points, transformed=True, component=None,
-                     logdensity=False):
+  def score(self, points, transformed=True, component=None):
+    """
+    Return sum of average logdensity of points.
+    This is equivalent to calling:
+      `obj.evaluate(points, logdensity=True, transformed,
+      component).sum()[()]`
+
+    Parameters
+    ----------
+    points : scalar or 1D numpy array of points where density will be
+      evaluated
+    transformed : True (default) if `points` live in the sample space
+      of your inputted data. `False` if your `points` live in the
+      sample space of Bayesian Fourier Series sample space ([0, 1]).
+    component : which individual component of the mixture to use.
+      Defaults to full mixture with posterior with sieve prior
+      (strongly recomended).
+
+    Returns
+    -------
+    Numpy float with sum of predicted mean log densities
+    """
+    return self.evaluate(points, True, transformed, component).sum()[()]
+
+  def evaluate(self, points, logdensity=False, transformed=True,
+               component=None):
     """
     Predict posterior density for estimated model.
 
@@ -292,33 +401,33 @@ class EstimateBFS:
       itpoints = self.itransf(points)
     else:
       itpoints = points
-    if not self.transformation:
+    if self.transformation is None:
       transformed = False
     if component:
       phipoints = fourierseries(itpoints, component)
-      usrlogposteriorindivmean = self.__predictdensityindiv(points,
+      usrlogdensityindivmean = self.__predictdensityindiv(points,
                                                             phipoints,
                                                             transformed,
                                                             component)
       if logdensity:
-        return usrlogposteriorindivmean
+        return usrlogdensityindivmean
       else:
-        return np.exp(usrlogposteriorindivmean)
+        return np.exp(usrlogdensityindivmean)
 
     phipoints = fourierseries(itpoints, self.nmaxcomp)
-    usrlogposteriorindivmean =\
+    usrlogdensityindivmean =\
       np.empty((self.nmaxcomp, points.size))
     for i in range(self.nmaxcomp):
-      usrlogposteriorindivmean[i, :] =\
+      usrlogdensityindivmean[i, :] =\
         self.__predictdensityindiv(points, phipoints, transformed, i)
 
-    usrlogposteriormixmean =\
-      self.__predictdensitymix(usrlogposteriorindivmean)
+    usrlogdensitymixmean =\
+      self.__predictdensitymix(usrlogdensityindivmean)
 
     if logdensity:
-      return usrlogposteriormixmean
+      return usrlogdensitymixmean
     else:
-      return np.exp(usrlogposteriormixmean)
+      return np.exp(usrlogdensitymixmean)
 
   def plot(self, ax=None, pltshow=True, component=None, **kwargs):
     """
@@ -330,26 +439,26 @@ class EstimateBFS:
     show : if True, calls matplotlib.pyplot plt.show() at end
     component : Which individual component to plot. Defaults to full
       posterior with sieve prior (mixture of individual components).
-    **kwargs : aditional named arguments passed to
+    **kwargs : aditional keyword arguments passed to
       matplotlib.axes.Axes.step
 
     Returns
     -------
     matplotlib.axes.Axes object
     """
+    if self.obs is None:
+      raise Exception('Data is not set, must call method fit first.')
     try:
       import matplotlib.pyplot as plt
     except ImportError:
       raise ImportError('matplotlib package required to plot')
-    if not self.sfit:
-      return "No samples to plot."
     if not self.isgridevalued:
       return "Must call obj.evalgrid() first."
-    if not component:
-      ytoplot = self.posteriormixmean
+    if component is None:
+      ytoplot = self.densitymixmean
     else:
-      ytoplot = self.posteriorindivmean[component, :]
-    if not ax:
+      ytoplot = self.densityindivmean[component, :]
+    if ax is None:
       ax = plt.figure().add_subplot(111)
     ax.plot(self.gridpoints, ytoplot, **kwargs)
     if pltshow:

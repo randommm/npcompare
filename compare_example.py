@@ -28,11 +28,11 @@ posterior2n = np.random.normal(1, 0.1, size=100)
 
 compn = npc.Compare(stats.norm.pdf, stats.norm.pdf,
                     posterior1n, posterior2n, a=-300, b=300)
-compn.sample(200)
+compn.sampleposterior(200)
 print(compn.msamples.mean())
 print(len(compn))
 compn.plot()
-compn.sample(120)
+compn.sampleposterior(120)
 print(compn.msamples.mean())
 print(len(compn))
 
@@ -52,7 +52,7 @@ def f(x, params):
   return stats.beta.pdf(x, params[0], params[1])
 
 comp12b = npc.Compare(f, f, posterior1b, posterior2b, a=0, b=1)
-comp12b.sample(1000)
+comp12b.sampleposterior(1000)
 print(comp12b.msamples.mean())
 
 #Another posterior very similar to posterior1b
@@ -62,10 +62,10 @@ posterior3b = np.column_stack((posterior3bAlpha, posterior3bBeta))
 
 #Compare 2-by-2
 comp13b = npc.Compare(f, f, posterior1b, posterior3b, a=0, b=1)
-comp13b.sample(1000)
+comp13b.sampleposterior(1000)
 
 comp23b = npc.Compare(f, f, posterior2b, posterior3b, a=0, b=1)
-comp23b.sample(1000)
+comp23b.sampleposterior(1000)
 
 axx = comp12b.plot(color="blue", linewidth=2.0,
                   linestyle="-.", label="1 against 2")

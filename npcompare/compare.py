@@ -16,6 +16,7 @@
 
 import numpy as np
 from npcompare.fourierseries import fourierseries
+from scipy.integrate import quad
 
 class Compare:
   """
@@ -52,13 +53,9 @@ class Compare:
     self.psamples2 = np.array(psamples2)
     self.weights1 = np.array(weights1)
     self.weights2 = np.array(weights2)
-    self.weights1 = self.weights1 / sum(self.weights1)
-    self.weights2 = self.weights2 / sum(self.weights2)
-    if metric == None:
-      try:
-        from scipy.integrate import quad
-      except ImportError:
-        raise ImportError('scipy package required with default metric')
+    self.weights1 /= sum(self.weights1)
+    self.weights2 /= sum(self.weights2)
+    if metric is None:
       def metric (f1, f2, param1, param2):
         return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
                                lower, upper)[0]
@@ -68,7 +65,8 @@ class Compare:
     self.msamples = np.array([], dtype=np.float64)
 
   @classmethod
-  def frombfs(cls, bfsobj1, bfsobj2, transformation=False, metric=None):
+  def frombfs(cls, bfsobj1, bfsobj2, transformation=True,
+              metric=None):
     """
     Create a class Compare from two EstimateBFS objects.
 
@@ -80,11 +78,12 @@ class Compare:
       Set to 0 to disable printing.
     transformation : if set to False, metric will be evaluated in
       [0, 1] without transformation (EstimateBFS class documentation).
-      Otherwise, transformation will be applied and the parameter must
-      be set to a dictionary with the lower and upper boundaries of
-      integration, that is: {"lower": lower, "upper": upper} (the sample
-      space of observed data).
-      Defaults to False.
+      Otherwise, transformation will be applied.
+      The parameter can also be set to a dictionary with the lower and
+      upper boundaries of integration manually set, that is:
+      {"lower": lower, "upper": upper} (the sample space of observed
+      data).
+      Ignored if bfsobj1 has no transformation.
     metric : metric function to be used, defaults to class's default
 
     Returns
@@ -108,17 +107,23 @@ class Compare:
           psamples[wl, (k+2):] = 0.0
           weights[wl] = bfsobj.weights[i, k]
 
-    if (transformation):
+    if transformation is not None and bfsobj1.laditransf is not None:
       def f1(x, psample):
         logd = (fourierseries(x, bfsobj1.nmaxcomp) * \
-          psample[1:]).sum() - psample[0] + bfsobj1.laditransf(x)
+          psample[1:]).sum() - psample[0] + \
+          bfsobj1.laditransf(bfsobj1.itransf(x))
         return np.exp(logd)
       def f2(x, psample):
         logd = (fourierseries(x, bfsobj2.nmaxcomp) * \
-          psample[1:]).sum() - psample[0] + bfsobj2.laditransf(x)
+          psample[1:]).sum() - psample[0] + \
+          bfsobj2.laditransf(bfsobj2.itransf(x))
         return np.exp(logd)
-      lower = transformation["lower"]
-      upper = transformation["upper"]
+      if isinstance(transformation, dict):
+        lower = transformation["lower"]
+        upper = transformation["upper"]
+      else:
+        lower = bfsobj1.transf(0)
+        upper = bfsobj1.transf(1)
     else:
       def f1(x, psample):
         logd = (fourierseries(x, bfsobj1.nmaxcomp) * \
@@ -137,7 +142,7 @@ class Compare:
   def __len__(self):
      return self.msamples.size
 
-  def sample(self, niter=1000, refresh=100):
+  def sampleposterior(self, niter=1000, refresh=100):
     """
     Compare two samples.
 
@@ -193,7 +198,7 @@ class Compare:
     if self.msamples.size == 0:
       return "No metric samples to plot"
     smsamples = np.sort(self.msamples)
-    if not ax:
+    if ax is None:
       ax = plt.figure().add_subplot(111)
     ax.step(smsamples,
             np.arange(self.msamples.size) / self.msamples.size,

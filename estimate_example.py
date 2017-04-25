@@ -22,7 +22,7 @@ import scipy.stats as stats
 #Example 1
 obs = np.random.beta(1,1,100)
 densobj1 = npc.EstimateBFS(obs, 5)
-densobj1.sample(100)
+densobj1.sampleposterior(100)
 
 p = densobj1.plot()
 densobj1.plot(p, True, 4)
@@ -34,7 +34,7 @@ p.plot(densobj1.gridpoints,
 #Example 2
 obs=np.random.normal(0, 1, 200)
 densobj2 = npc.EstimateBFS(obs, 5, transformation="logit")
-densobj2.sample(1000)
+densobj2.sampleposterior(1000)
 
 p = densobj2.plot()
 densobj2.plot(p, True, 4)
@@ -49,7 +49,7 @@ obs = obs[obs > -3]
 obs = obs[obs < 3]
 densobj3 = npc.EstimateBFS(obs, transformation={"transf": "fixed",
                                                 "vmin": -3, "vmax": 3})
-densobj3.sample(1000)
+densobj3.sampleposterior(1000)
 p = densobj3.plot()
 densobj3.plot(p, True, 4)
 densobj3.plot(p, True, 3)
@@ -63,12 +63,12 @@ from scipy.integrate import quad
 #You could call:
 #quad(lambda x: densobj3.evalposterior(x), -3, 3)
 #But the recommended faster way is:
-quad(lambda x: densobj3.predictdensity(x, transformed=False), 0, 1)
+quad(lambda x: densobj3.evaluate(x, transformed=False), 0, 1)
 
 #Estimate mean and variance
 #Here you must use transformed space
-estmean = quad(lambda x: x * densobj3.predictdensity(x), -3, 3)[0]
-estvar = quad(lambda x: x ** 2.0 * densobj3.predictdensity(x),
+estmean = quad(lambda x: x * densobj3.evaluate(x), -3, 3)[0]
+estvar = quad(lambda x: x ** 2.0 * densobj3.evaluate(x),
               -3, 3)[0] - estmean ** 2.0
 
 
