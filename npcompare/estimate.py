@@ -60,10 +60,18 @@ class EstimateBFS:
     that transforms [0, 1] to sample space, `itransf` is its inverse,
     and `laditransf` is the log absolute derivative of `itransf`.
     These 3 functions must accept and return numpy 1D arrays.
+  mixture : if True, will work with a mixture of Fourier series models
+    with up to `nmaxcomponent` components (that is, a prior will be set
+    on the number of components of the Fourier Series). If False, will
+    work with a single Fourier series model with exactly nmaxcomponent
+    components.
   *kwargs: additional keyword arguments passed to method `fit`
   """
   def __init__(self, obs=None, nmaxcomp=10, hpp=1, hpgamma=0,
-               transformation=None, **kwargs):
+               transformation=None, mixture=True, **kwargs):
+    self.__mixture = mixture
+    self._smodel = None
+
     if not "niter" in kwargs:
       kwargs["niter"] = 0
     if obs is not None:
@@ -154,7 +162,6 @@ class EstimateBFS:
 
     return self
 
-
   def __len__(self):
      return self.beta.shape[0]
 
@@ -169,14 +176,18 @@ class EstimateBFS:
       raise ImportError('pystan package required for class Estimate')
     if self.obs is None:
       raise Exception('Data is not set, must call method fit first.')
-
     if self._smodel is None:
-      EstimateBFS._smodel = \
-        pystan.StanModel(model_code=self._smodelcode)
+      if self.__mixture:
+        if EstimateBFS._smodel_mixture is None:
+          EstimateBFS._smodel_mixture = pystan.StanModel(model_code = EstimateBFS._smodelcode_mixture)
+        self._smodel = EstimateBFS._smodel_mixture
+      else:
+        if EstimateBFS._smodel_single is None:
+          EstimateBFS._smodel_single = pystan.StanModel(model_code=EstimateBFS._smodelcode_single)
+        self._smodel = EstimateBFS._smodel_single
 
-
-  def sampleposterior(self, niter=5000, nchains=4, njobs=-1, tolrhat=0.02,
-             **kwargs):
+  def sampleposterior(self, niter=5000, nchains=4, njobs=-1,
+                      tolrhat=0.02, **kwargs):
     """
     Samples from posterior.
 
@@ -197,7 +208,6 @@ class EstimateBFS:
     None
     """
     self.compilestanmodel()
-    self._smodel = EstimateBFS._smodel
 
     while True:
       self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
@@ -217,14 +227,16 @@ class EstimateBFS:
 
   def __processfit(self):
     if not self.sfit:
-      Exception("This function cannot be called before obj.sampleposterior()")
+      raise Exception("This function cannot be called before obj.sampleposterior()")
 
     #Code commented due to some weird bug on pystan.extract
-    #self.beta = self.sfit.extract("beta")["beta"]
-    #self.lognormconst = \
-      #self.sfit.extract("lognormconst")["lognormconst"]
+    if not self.__mixture:
+      self.beta = self.sfit.extract("beta")["beta"]
+      self.lognormconst = \
+      self.sfit.extract("lognormconst")["lognormconst"]
+      self.nsim = self.beta.shape[0]
+      return
     #self.weights = self.sfit.extract("weights")["weights"]
-    #self.nsim = self.beta.shape[0]
     #self.probcomp = self.weights.mean(0)
 
     def beta_func(i, j, k):
@@ -275,16 +287,24 @@ class EstimateBFS:
 
     Notes
     -----
-    The grid points are stored in the instance variable `gridpoints`.
-    Log densities for individual components are stored in the instance
-      variable `logdensityindivmean`.
-    Densities for individual components are stored in the instance
-      variable `densityindivmean`.
-    Log densities for full mixture of components are stored in the
-      instance variable `logdensitymixmean`.
-    Densities for full mixture of components are stored in the instance
-      variable `densitymixmean`.
+    The grid points will be stored in the instance variable
+      `gridpoints`.
 
+    If object was initialized with mixture=True, you will have:
+
+    Log densities for full mixture of components stored in the
+      instance variable `logdensitymixmean`.
+    Densities for full mixture of components stored in the instance
+      variable `densitymixmean`.
+    Log densities for individual components stored in the instance
+      variable `logdensityindivmean`.
+    Densities for individual components stored in the instance
+      variable `densityindivmean`.
+
+    If object was initialized with mixture=False, you will have:
+
+    Log densities stored in the instance variable `logdensitymean`.
+    Densities stored in the instance variable `densitymean`.
     """
     if self.obs is None:
       raise Exception('Data is not set, must call method fit first.')
@@ -298,6 +318,15 @@ class EstimateBFS:
       self.gridpoints = self.transf(self.gridpoints_internal_bfs)
     else:
       self.gridpoints = self.gridpoints_internal_bfs
+
+    #Special case of mixture=False
+    if not self.__mixture:
+      self.logdensitymean = \
+        self.__predictdensitysingle(self.gridpoints, phidp,
+                                    self.transformation)
+      self.densitymean = np.exp(self.logdensitymean)
+      self.isgridevalued = True
+      return
 
     #Empty var to store results
     self.logdensityindivmean =\
@@ -334,10 +363,31 @@ class EstimateBFS:
       avgtemp += maxtemp
       evlogdensityindivmean[j] = avgtemp
 
-    if transformed:
+    if transformed is not None:
       evlogdensityindivmean += self.laditransf(tedp)
 
     return evlogdensityindivmean
+
+  def __predictdensitysingle(self, tedp, phiedp, transformed):
+    evlogdensitymean = np.empty(tedp.size)
+    temp = np.empty(self.nsim)
+    for j in range(tedp.size):
+      temp = (phiedp[j, :] * self.beta).sum(1) - self.lognormconst
+
+      #get log of average of exponential of the log-likelihood for
+      #each posterior simulation.
+      maxtemp = temp.max()
+      temp -= maxtemp
+      temp = np.exp(temp)
+      avgtemp = np.average(temp)
+      avgtemp = np.log(avgtemp)
+      avgtemp += maxtemp
+      evlogdensitymean[j] = avgtemp
+
+    if transformed:
+      evlogdensitymean += self.laditransf(tedp)
+
+    return evlogdensitymean
 
   def __predictdensitymix(self, evlogdensityindivmean):
     prefpm = np.array(evlogdensityindivmean)
@@ -367,6 +417,7 @@ class EstimateBFS:
     component : which individual component of the mixture to use.
       Defaults to full mixture with posterior with sieve prior
       (strongly recomended).
+      Ignored with object was initialized with mixture=False.
 
     Returns
     -------
@@ -389,6 +440,7 @@ class EstimateBFS:
     component : which individual component of the mixture to use.
       Defaults to full mixture with posterior with sieve prior
       (strongly recomended).
+      Ignored with object was initialized with mixture=False.
     logdensity : if True, will return the logdensity instead of the
       density
 
@@ -403,12 +455,24 @@ class EstimateBFS:
       itpoints = points
     if self.transformation is None:
       transformed = False
+
+    #Special case of mixture=False
+    if not self.__mixture:
+      phipoints = fourierseries(itpoints, self.nmaxcomp)
+      usrlogdensitymean = \
+        self.__predictdensitysingle(points, phipoints, transformed)
+      if logdensity:
+        return usrlogdensitymean
+      else:
+        return np.exp(self.logdensitymean)
+
+    #Special case for single component of mixture
     if component:
       phipoints = fourierseries(itpoints, component)
       usrlogdensityindivmean = self.__predictdensityindiv(points,
-                                                            phipoints,
-                                                            transformed,
-                                                            component)
+                                                          phipoints,
+                                                          transformed,
+                                                          component)
       if logdensity:
         return usrlogdensityindivmean
       else:
@@ -439,6 +503,7 @@ class EstimateBFS:
     show : if True, calls matplotlib.pyplot plt.show() at end
     component : Which individual component to plot. Defaults to full
       posterior with sieve prior (mixture of individual components).
+      Ignored with object was initialized with mixture=False.
     **kwargs : aditional keyword arguments passed to
       matplotlib.axes.Axes.step
 
@@ -454,7 +519,9 @@ class EstimateBFS:
       raise ImportError('matplotlib package required to plot')
     if not self.isgridevalued:
       return "Must call obj.evalgrid() first."
-    if component is None:
+    if not self.__mixture:
+      ytoplot = self.densitymean
+    elif component is None:
       ytoplot = self.densitymixmean
     else:
       ytoplot = self.densityindivmean[component, :]
@@ -471,8 +538,15 @@ class EstimateBFS:
      d.move_to_end("sfit")
      return d
 
-  _smodel = None
-  _smodelcode = \
+  def __setstate__(self, d):
+     if "__mixture" not in d.keys():
+       d["__mixture"] = True
+     self.__dict__ = d
+
+  _smodel_mixture = None
+  _smodel_single = None
+
+  _smodelcode_mixture = \
   """
   functions {
     real lkk(real x, real[] beta) {
@@ -539,5 +613,59 @@ class EstimateBFS:
     vector[nmaxcomp] weights;
     weights = softmax(lp);
     model_index = categorical_rng(weights);
+  }
+  """
+
+  _smodelcode_single = \
+  """
+  functions {
+    real lkk(real x, real[] beta) {
+      real result_;
+      result_ = 0;
+      for (i in 1:num_elements(beta)) {
+        if (i % 2 == 0)
+          result_ = result_ + beta[i] * cos(i * pi() * x);
+        else
+          result_ = result_ + beta[i] * sin((i + 1) * pi() * x);
+      }
+
+      return exp(result_ * sqrt2());
+    }
+    real[] integ(real x, real[] f, real[] beta, real[] x_r, int[] x_i) {
+      real dfdx[1];
+      dfdx[1] = lkk(x, beta);
+      return dfdx;
+    }
+  }
+  data {
+    int<lower=1> nmaxcomp; // number of mixture components
+    int<lower=1> nobs; // number of data points
+    matrix[nobs, nmaxcomp] phi;
+    real<lower=0> hpp;
+  }
+  transformed data {
+    real x_r[0];
+    int x_i[0];
+    real minus_hpp_minus_half;
+    minus_hpp_minus_half = -hpp - 0.5;
+  }
+  parameters {
+    vector[nmaxcomp] beta;
+  }
+  transformed parameters {
+    real lognormconst;
+    lognormconst =
+      log(integrate_ode_rk45(integ, {0.0}, 0, {1.0},
+                             to_array_1d(beta),
+                             x_r, x_i, 1.49e-08, 1.49e-08, 1e7)[1,1]);
+  }
+  model {
+    target += sum(phi * beta) - nobs * lognormconst;
+    for (i in 1:nmaxcomp) {
+      if (i % 2 == 0)
+        beta[i] ~ normal(0, i ^ minus_hpp_minus_half);
+      else
+        beta[i] ~ normal(0, (i + 1) ^ minus_hpp_minus_half);
+    }
   }
   """
