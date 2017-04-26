@@ -27,8 +27,8 @@ densobj1.sampleposterior(100)
 p = densobj1.plot()
 densobj1.plot(p, True, 4)
 densobj1.plot(p, True, 3)
-p.plot(densobj1.gridpoints,
-       stats.betdensobj1.pdf(densobj1.gridpoints, 1, 1))
+p.plot(densobj1.egresults["gridpoints"],
+       stats.betdensobj1.pdf(densobj1.egresults["gridpoints"], 1, 1))
 
 
 #Example 2
@@ -39,7 +39,8 @@ densobj2.sampleposterior(1000)
 p = densobj2.plot()
 densobj2.plot(p, True, 4)
 densobj2.plot(p, True, 3)
-p.plot(densobj2.gridpoints, stats.norm.pdf(densobj2.gridpoints, 0, 1))
+p.plot(densobj2.egresults["gridpoints"],
+       stats.norm.pdf(densobj2.egresults["gridpoints"], 0, 1))
 
 
 #Example 3
@@ -53,9 +54,9 @@ densobj3.sampleposterior(1000)
 p = densobj3.plot()
 densobj3.plot(p, True, 4)
 densobj3.plot(p, True, 3)
-p.plot(densobj3.gridpoints,
-       stats.norm.pdf(densobj3.gridpoints, 0.5, 3.5) / \
-         (stats.norm.cdf(3, 0.5, 3.5) - stats.norm.cdf(-3, 0.5, 3.5)))
+p.plot(densobj3.egresults["gridpoints"],
+       (stats.norm.pdf(densobj3.egresults["gridpoints"], 0.5, 3.5) /
+       (stats.norm.cdf(3, 0.5, 3.5) - stats.norm.cdf(-3, 0.5, 3.5))))
 
 
 from scipy.integrate import quad

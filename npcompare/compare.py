@@ -24,26 +24,37 @@ class Compare:
 
   Parameters
   ----------
-  f1 : density function for the first population.
-  f2 : density function for the second population.
-  psamples1 : must be either a one dimensional numpy.array
+  f1 : function
+    Density function for the first population.
+  f2 : function
+    Density function for the second population.
+  psamples1 : array like
+    Must be either a one dimensional numpy.array
     (in which case, each element will be passed one at a time to f1)
     or a two dimensional numpy.array (in which case, each row will be
     passed one at a time to f1).
-  psamples2 : analog to psamples1.
-  weights1 : Give weights to posterior psamples1.
+  psamples2 : array like
+    Analog to psamples1.
+  weights1 : array like
+    Give weights to posterior psamples1.
     Set to None if each posterior sample has the same weight
     (the usual case for MCMC methods).
-  weights2 : analog to weights2.
-  metric : metric function to be used
-    Defaults to:
+  weights2 : array like
+    Analog to weights2.
+  metric : function
+    Metric function to be used.
 
-    def metric(f1, f2, param1, param2): return quad(lambda x:
-    (f1(x, param1) - f2(x, param2))**2, a, b)[0]
+    Defaults to:
+    ::
+
+        def metric(f1, f2, param1, param2): return quad(lambda x:
+        (f1(x, param1) - f2(x, param2))**2, a, b)[0]
 
     Can be set to a user-defined function of the same signature.
-  lower : lower integration limit passed to default metric function.
-  upper : upper integration limit passed to default metric function.
+  lower : float
+    Lower integration limit passed to default metric function.
+  upper : float
+    Upper integration limit passed to default metric function.
   """
   def __init__(self, f1, f2, psamples1, psamples2, lower=0, upper=1,
                weights1=None, weights2=None, metric=None):
@@ -51,10 +62,18 @@ class Compare:
     self.f2 = f2
     self.psamples1 = np.array(psamples1)
     self.psamples2 = np.array(psamples2)
-    self.weights1 = np.array(weights1)
-    self.weights2 = np.array(weights2)
-    self.weights1 /= sum(self.weights1)
-    self.weights2 /= sum(self.weights2)
+
+    if weights1 is not None:
+      self.weights1 = np.array(weights1)
+      self.weights1 /= self.weights1.sum()
+    else:
+      self.weights1 = None
+    if weights2 is not None:
+      self.weights2 = np.array(weights2)
+      self.weights2 /= self.weights2.sum()
+    else:
+      self.weights2 = None
+
     if metric is None:
       def metric (f1, f2, param1, param2):
         return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
@@ -72,24 +91,28 @@ class Compare:
 
     Parameters
     ----------
-    bfsobj1 : number of simulations to be draw.
-    bfsobj2 : interval of samples to print the amount of
-      samples obtained so far.
-      Set to 0 to disable printing.
-    transformation : if set to False, metric will be evaluated in
-      [0, 1] without transformation (EstimateBFS class documentation).
+    bfsobj1 : EstimateBFS object
+    bfsobj2 : EstimateBFS object
+    transformation :
+      If set to None, metric will be evaluated in [0, 1] without
+      transformation (EstimateBFS class documentation).
       Otherwise, transformation will be applied.
+
       The parameter can also be set to a dictionary with the lower and
       upper boundaries of integration manually set, that is:
       {"lower": lower, "upper": upper} (the sample space of observed
       data).
+
       Ignored if bfsobj1 has no transformation.
-    metric : metric function to be used, defaults to class's default
+    metric : function
+      Metric function to be used, defaults to class's default.
 
     Returns
     -------
     New instance of class Compare
     """
+    if not bfsobj1._ismixture:
+      raise Exception("Only mixtures supported for now.")
     totalsim1 = bfsobj1.beta.shape[0] * bfsobj1.nmaxcomp
     totalsim2 = bfsobj2.beta.shape[0] * bfsobj2.nmaxcomp
     psamples1 = np.empty((totalsim1, bfsobj1.nmaxcomp + 1))
@@ -148,8 +171,10 @@ class Compare:
 
     Parameters
     ----------
-    niter : number of simulations to be draw.
-    refresh : interval of samples to print the amount of
+    niter : integer
+      Number of simulations to be draw.
+    refresh : integer
+      Interval of samples to print the amount of
       samples obtained so far.
       Set to 0 to disable printing.
 
@@ -182,10 +207,12 @@ class Compare:
 
     Parameters
     ----------
-    ax : axxs to plot, defaults to axes of a new figure
-    show : if True, calls matplotlib.pyplot plt.show() at end
-    **kwargs : aditional named arguments passed to
-      matplotlib.axes.Axes.step
+    ax : matplotlib axes
+      Axis to plot, defaults to axes of a new figure.
+    show : bool
+      If True, calls matplotlib.pyplot plt.show() at end.
+    **kwargs :
+      Aditional named arguments passed to matplotlib.axes.Axes.step.
 
     Returns
     -------
