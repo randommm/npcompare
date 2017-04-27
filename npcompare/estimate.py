@@ -249,9 +249,9 @@ class EstimateBFS:
     self.compilestanmodel()
 
     while True:
-      self.sfit = self._smodel.sampling(data=self.modeldata, n_jobs=njobs,
-                                        chains=nchains, iter=niter,
-                                        **kwargs)
+      self.sfit = self._smodel.sampling(data=self.modeldata,
+                                        n_jobs=njobs, chains=nchains,
+                                        iter=niter, **kwargs)
       irhat = self.sfit.summary()['summary_colnames'].index("Rhat")
       drhat1 = max(abs(self.sfit.summary()["summary"][:, irhat] - 1))
       if drhat1 < tolrhat:
@@ -348,6 +348,7 @@ class EstimateBFS:
 
         Densities stored as `densitymean`.
     """
+    transformed = self.transformation is not None
     if self.beta is None:
       raise Exception("No MCMC samples available, you must call"
                       "obj.sampleposterior() first.")
@@ -360,7 +361,7 @@ class EstimateBFS:
     gridpointsibfs[0] += 1.0 / 1e10 / gridsize
     gridpointsibfs[-1] -= 1.0 / 1e10 / gridsize
     phidp = fourierseries(gridpointsibfs, self.nmaxcomp)
-    if self.transformation is not None:
+    if transformed:
       gddict["gridpoints"] = self.transf(gridpointsibfs)
     else:
       gddict["gridpoints"] = gridpointsibfs
@@ -370,7 +371,7 @@ class EstimateBFS:
     if not self._ismixture:
       gddict["logdensitymean"] = \
         self.__predictdensitysingle(gridpoints, phidp,
-                                    self.transformation)
+                                    transformed)
       gddict["densitymean"] = np.exp(gddict["logdensitymean"])
       return
 
@@ -382,7 +383,7 @@ class EstimateBFS:
     for i in range(self.nmaxcomp):
       gddict["logdensityindivmean"][i, :] =\
         self.__predictdensityindiv(gridpoints, phidp,
-                                   self.transformation, i)
+                                   transformed, i)
 
     #Eval mix density
     gddict["logdensitymixmean"] =\
@@ -408,7 +409,7 @@ class EstimateBFS:
       avgtemp += maxtemp
       evlogdensityindivmean[j] = avgtemp
 
-    if transformed is not None:
+    if transformed:
       evlogdensityindivmean += self.laditransf(tedp)
 
     return evlogdensityindivmean
@@ -506,12 +507,12 @@ class EstimateBFS:
       raise Exception("No MCMC samples available, you must call"
                       "obj.sampleposterior() first.")
     points = np.array(points, ndmin=1) #ndmin to allow call to quad
+    if self.transformation is None:
+      transformed = False
     if transformed:
       itpoints = self.itransf(points)
     else:
       itpoints = points
-    if self.transformation is None:
-      transformed = False
 
     #Special case of mixture=False
     if not self._ismixture:
