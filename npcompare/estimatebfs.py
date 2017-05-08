@@ -124,6 +124,10 @@ class EstimateBFS:
       not call method `sample`.
     **kwargs:
       Additional keyword arguments passed to method `sample`.
+
+    Returns
+    -------
+    self
     """
     #Work out transformation function
     if transformation is not None:
@@ -185,6 +189,8 @@ class EstimateBFS:
         self.sampleposterior(niter, **kwargs)
     elif self.__isinitialized:
       raise ValueError("You must supply data to `fit` method!")
+    else:
+      self.modeldata = None
 
     self.__isinitialized = True
 
@@ -197,13 +203,15 @@ class EstimateBFS:
     """
     Compile Stan model necessary for method sample. This method is
     called automatically by obj.sample().
+
+    Returns
+    -------
+    self
     """
     try:
       import pystan
     except ImportError:
       raise ImportError('pystan package required for class Estimate')
-    if self.obs is None:
-      raise Exception('Data is not set, must call method fit first.')
     if self._smodel is None:
       if self._ismixture:
         if EstimateBFS._smodel_mixture is None:
@@ -213,6 +221,8 @@ class EstimateBFS:
         if EstimateBFS._smodel_single is None:
           EstimateBFS._smodel_single = pystan.StanModel(model_code=EstimateBFS._smodelcode_single)
         self._smodel = EstimateBFS._smodel_single
+
+    return self
 
   def sampleposterior(self, niter=5000, nchains=4, njobs=-1,
                       tolrhat=0.02, **kwargs):
@@ -238,19 +248,22 @@ class EstimateBFS:
 
     Returns
     -------
-    None
+    self
     """
     self.compilestanmodel()
+
+    if self.modeldata is None:
+      raise Exception('Data is not set, must call method fit first.')
 
     while True:
       self.sfit = self._smodel.sampling(data=self.modeldata,
                                         n_jobs=njobs, chains=nchains,
-                                        iter=niter, **kwargs)
+                                        iter=int(niter), **kwargs)
       irhat = self.sfit.summary()['summary_colnames'].index("Rhat")
       drhat1 = max(abs(self.sfit.summary()["summary"][:, irhat] - 1))
       if drhat1 < tolrhat:
         break
-      niter += niter // 10
+      niter += niter / 10
       print("Model failed to converge given your tolrhat of ", tolrhat,
             "; the observed maximum distance of an Rhat from 1 was ",
             drhat1, "; retrying sampling with ", niter, "iterations")
@@ -258,53 +271,27 @@ class EstimateBFS:
     self._processfit()
     self.egresults = dict()
 
-  def _processfit(self):
+    return self
+
+  def _processfit(self, beta="beta", lognormconst="lognormconst",
+                  weights="weights"):
     if not self.sfit:
-      raise Exception("This function cannot be called before obj.sampleposterior()")
+      raise Exception("This function cannot be called before "
+                      "obj.sampleposterior()")
 
-    #Code commented due to some weird bug on pystan.extract
-    if not self._ismixture:
-      self.beta = self.sfit.extract("beta")["beta"]
-      self.lognormconst = \
-      self.sfit.extract("lognormconst")["lognormconst"]
-      self.nsim = self.beta.shape[0]
+    self.sfit.sim['n_save'] = [int(x) for x in self.sfit.sim['n_save']]
+
+    extract = self.sfit.extract()
+
+    self.beta = extract[beta]
+    self.lognormconst = extract[lognormconst]
+    self.nsim = self.beta.shape[0]
+
+    if self._ismixture:
+      self.weights = extract[weights]
+      self.probcomp = self.weights.mean(0)
+    else:
       self.weights = None
-      return
-    #self.weights = self.sfit.extract("weights")["weights"]
-    #self.probcomp = self.weights.mean(0)
-
-    def beta_func(i, j, k):
-      return extracted[i, fnames.index("beta["+str(j)+","+str(k)+"]")]
-    def lognormconst_func(i, j):
-      return extracted[i, fnames.index("lognormconst["+str(j)+"]")]
-    def weights_func(i, j):
-      return extracted[i, fnames.index("weights["+str(j)+"]")]
-
-    def fromfunction2d(func, shape):
-      res = np.empty(shape)
-      for j in range(shape[1]):
-        res[range(shape[0]), j] = func(range(shape[0]), j)
-      return res
-
-    def fromfunction3d(func, shape):
-      res = np.empty(shape)
-      for j in range(shape[1]):
-        for k in range(shape[2]):
-          res[range(shape[0]), j, k] = func(range(shape[0]), j, k)
-      return res
-
-    nmaxcomp = self.nmaxcomp
-    fnames = self.sfit.flatnames
-    extracted = self.sfit.extract(permuted=False)
-    nsim = extracted.shape[0] * extracted.shape[1]
-    extracted = extracted.reshape((nsim, len(fnames) + 1))
-    self.beta = fromfunction3d(beta_func, (nsim, nmaxcomp, nmaxcomp))
-    self.lognormconst = fromfunction2d(lognormconst_func,
-                                       (nsim, nmaxcomp))
-    self.weights = fromfunction2d(weights_func, (nsim, nmaxcomp))
-
-    self.nsim = nsim
-    self.probcomp = self.weights.mean(0)
 
   def evalgrid(self, gridsize=1000):
     """
@@ -317,7 +304,7 @@ class EstimateBFS:
 
     Returns
     -------
-    None
+    self
 
     Notes
     -----
@@ -386,6 +373,8 @@ class EstimateBFS:
 
     gddict["densitymixmean"] = np.exp(gddict["logdensitymixmean"])
     gddict["densityindivmean"] = np.exp(gddict["logdensityindivmean"])
+
+    return self
 
   def __predictdensityindiv(self, tedp, phiedp, transformed, i):
     evlogdensityindivmean = np.empty(tedp.size)

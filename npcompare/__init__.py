@@ -2,7 +2,8 @@
 
 from npcompare.compare import Compare
 from npcompare.fourierseries import fourierseries
-from npcompare.estimate import EstimateBFS
+from npcompare.estimatebfs import EstimateBFS
+from npcompare.estimatelindleybfs import EstimateLindleyBFS
 
 __version__ = "0.9.1"
 
