@@ -16,14 +16,8 @@
 
 import numpy as np
 from npcompare.fourierseries import fourierseries
-from collections import OrderedDict
-import scipy.special
-
-def logit(x):
-  return - np.log(1 / x - 1)
-
-def invlogit(x):
-  return 1 / (1 + np.exp(-x))
+from collections import OrderedDict, Mapping
+from scipy.special import logit, expit
 
 class EstimateBFS:
   """
@@ -134,12 +128,12 @@ class EstimateBFS:
     #Work out transformation function
     if transformation is not None:
       if transformation == "logit":
-        self.transf = scipy.special.logit #logit
-        self.itransf = scipy.special.expit #invlogit
+        self.transf = logit #logit
+        self.itransf = expit #invlogit
         logoftwo = np.log(2)
         self.laditransf = \
           lambda x: - np.logaddexp(logoftwo, np.logaddexp(x, -x))
-      elif isinstance(transformation, dict):
+      elif isinstance(transformation, Mapping):
         if transformation["transf"] == "fixed":
           vmax = transformation["vmax"]
           vmin = transformation["vmin"]
@@ -174,7 +168,7 @@ class EstimateBFS:
     self.probcomp = None
     self.egresults = dict()
 
-    #process observations
+    #store and process observations
     if obs is not None:
       self.obs = np.array(obs, ndmin=1)
       self.nobs = self.obs.size
@@ -261,10 +255,10 @@ class EstimateBFS:
             "; the observed maximum distance of an Rhat from 1 was ",
             drhat1, "; retrying sampling with ", niter, "iterations")
 
-    self.__processfit()
+    self._processfit()
     self.egresults = dict()
 
-  def __processfit(self):
+  def _processfit(self):
     if not self.sfit:
       raise Exception("This function cannot be called before obj.sampleposterior()")
 
@@ -274,6 +268,7 @@ class EstimateBFS:
       self.lognormconst = \
       self.sfit.extract("lognormconst")["lognormconst"]
       self.nsim = self.beta.shape[0]
+      self.weights = None
       return
     #self.weights = self.sfit.extract("weights")["weights"]
     #self.probcomp = self.weights.mean(0)
@@ -425,7 +420,7 @@ class EstimateBFS:
       maxtemp = temp.max()
       temp -= maxtemp
       temp = np.exp(temp)
-      avgtemp = np.average(temp)
+      avgtemp = np.average(temp, weights=self.weights)
       avgtemp = np.log(avgtemp)
       avgtemp += maxtemp
       evlogdensitymean[j] = avgtemp
@@ -593,26 +588,30 @@ class EstimateBFS:
     return ax
 
   def __getstate__(self):
+    if EstimateBFS.pickle_notice:
      print("You must serialize using package dill instead of pickle.")
-     d = OrderedDict(self.__dict__)
-     d.move_to_end("sfit")
-     return d
+     EstimateBFS.pickle_notice = False
+    d = OrderedDict(self.__dict__)
+    #Ensure that self._smodel will be pickled first
+    d.move_to_end("sfit")
+    return d
 
   def __setstate__(self, d):
-     if "_ismixture" not in d.keys():
-       d["_ismixture"] = True
-     if "isgridevalued" in d.keys():
-       del(d["isgridevalued"])
-     if "egresults" not in d.keys():
-       d["egresults"] = dict()
-     for objname in ["densityindivmean", "logdensityindivmean",
-                     "densitymixmean", "logdensitymixmean",
-                     "densitymean", "logdensitymean",
-                     "gridpoints_internal_bfs", "gridpoints"]:
-       if objname in d.keys():
-         d["egresults"][objname] = d[objname]
-         del(d[objname])
-     self.__dict__ = d
+    d["_EstimateBFS__isinitialized"] = True
+    if "_ismixture" not in d.keys():
+     d["_ismixture"] = True
+    if "isgridevalued" in d.keys():
+     del(d["isgridevalued"])
+    if "egresults" not in d.keys():
+     d["egresults"] = dict()
+    for objname in ["densityindivmean", "logdensityindivmean",
+                   "densitymixmean", "logdensitymixmean",
+                   "densitymean", "logdensitymean",
+                   "gridpoints_internal_bfs", "gridpoints"]:
+     if objname in d.keys():
+       d["egresults"][objname] = d[objname]
+       del(d[objname])
+    self.__dict__ = d
 
   _smodel_mixture = None
   _smodel_single = None
@@ -740,3 +739,5 @@ class EstimateBFS:
     }
   }
   """
+
+  pickle_notice = True
