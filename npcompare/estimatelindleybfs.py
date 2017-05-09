@@ -34,8 +34,15 @@ class EstimateLindleyBFS:
     List/tuple or numpy.array 1D array of observations for model 1.
   obs2 : array like
     List/tuple or numpy.array 1D array of observations for model 2.
+  hplindley : float
+    A priori probability that obs1 and obs2 came from different
+    populations.
   **kwargs:
     Additional keyword arguments passed to method `fit`.
+
+  Notes
+  ----------
+  For other parameters, see documentation for EstimateBFS.
   """
   def __init__(self, obs1=None, obs2=None, nmaxcomp=10, hpp=1,
                hpgamma=0, hplindley=.5, transformation=None,
@@ -52,7 +59,7 @@ class EstimateLindleyBFS:
           hplindley=None, transformation=None, niter=5000, **kwargs):
     """
     Configure object model data and automatically calls method
-      `sampleposterior` (to obtain MCMC samples from the posterior).
+    `sampleposterior` (to obtain MCMC samples from the posterior).
 
     Parameters
     ----------
@@ -60,13 +67,26 @@ class EstimateLindleyBFS:
       List/tuple or numpy.array 1D array of observations for model 1.
     obs2 : array like
       List/tuple or numpy.array 1D array of observations for model 2.
+    hplindley : float
+      A priori probability that obs1 and obs2 came from different
+      populations.
     **kwargs:
       Additional keyword arguments passed to method `sample`.
 
     Returns
     -------
     self
+
+    Notes
+    ----------
+    For other parameters, see documentation for method fit of
+    EstimateBFS.
     """
+
+    #Clean results
+    self.sfit = None
+    self.problindley = None
+    self.nsim = None
 
     if obs1 is None or obs2 is None:
       obsconcat = None
@@ -219,8 +239,13 @@ class EstimateLindleyBFS:
 
   def evalgrid(self, gridsize=1000):
     """
-    Calculates posterior estimated mean density value at grid points so
-    they can be used later by method plot or directly by the user.
+    Call method evalgrid for each EstimateBFS object that the self
+    holds, that is, this is equivalent to calling:
+    ::
+
+      obj.bfs1.evalgrid(gridsize)
+      obj.bfs2.evalgrid(gridsize)
+      obj.bfsconcat.evalgrid(gridsize)
 
     Parameters
     ----------
@@ -237,9 +262,9 @@ class EstimateLindleyBFS:
     return self
 
   def __getstate__(self):
-    if EstimateLindleyBFS.pickle_notice:
-     print("You must serialize using package dill instead of pickle.")
-     EstimateLindleyBFS.pickle_notice = False
+    if EstimateBFS._pickle_notice:
+      print("You must serialize using package dill instead of pickle.")
+      EstimateBFS._pickle_notice = False
     d = OrderedDict(self.__dict__)
     #Ensure that self._smodel will be pickled first
     d.move_to_end("sfit")
@@ -485,5 +510,3 @@ class EstimateLindleyBFS:
     model_indexfull = categorical_rng(weightsfull);
   }
   """
-
-  pickle_notice = True

@@ -84,7 +84,7 @@ class EstimateBFS:
           transformation=None, niter=5000, **kwargs):
     """
     Configure object model data and automatically calls method
-      `sampleposterior` (to obtain MCMC samples from the posterior).
+    `sampleposterior` (to obtain MCMC samples from the posterior).
 
     Parameters
     ----------
@@ -437,8 +437,8 @@ class EstimateBFS:
     This is equivalent to calling:
     ::
 
-      `obj.evaluate(points, logdensity=True, transformed,
-      component).sum()[()]`
+      obj.evaluate(points, logdensity=True, transformed,
+      component).sum()[()]
 
     Parameters
     ----------
@@ -577,9 +577,9 @@ class EstimateBFS:
     return ax
 
   def __getstate__(self):
-    if EstimateBFS.pickle_notice:
-     print("You must serialize using package dill instead of pickle.")
-     EstimateBFS.pickle_notice = False
+    if EstimateBFS._pickle_notice:
+      print("You must serialize using package dill instead of pickle.")
+      EstimateBFS._pickle_notice = False
     d = OrderedDict(self.__dict__)
     #Ensure that self._smodel will be pickled first
     d.move_to_end("sfit")
@@ -729,4 +729,4 @@ class EstimateBFS:
   }
   """
 
-  pickle_notice = True
+  _pickle_notice = True
