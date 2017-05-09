@@ -20,11 +20,11 @@ import npcompare as npc
 
 densobj1 = np.random.beta(1, 1, 40)
 a = npc.EstimateBFS(densobj1)
-a.sampleposterior(1000)
+a.sampleposterior(10000)
 
 densobj2 = np.random.beta(0.9, 1.1, 50)
 b = npc.EstimateBFS(densobj2)
-b.sampleposterior(1000)
+b.sampleposterior(10000)
 
 comp12 = npc.Compare.frombfs(a, b)
 comp12.sampleposterior()
@@ -38,14 +38,14 @@ obs3 = obs3[obs3 > -3]
 obs3 = obs3[obs3 < 3]
 densobj3 = npc.EstimateBFS(obs3, transformation={"transf": "fixed",
                                                  "vmin": -3, "vmax": 3})
-densobj3.sampleposterior(1000)
+densobj3.sampleposterior(10000)
 
 obs4 = np.random.normal(-0.5, 2.5, 250)
 obs4 = obs4[obs4 > -3]
 obs4 = obs4[obs4 < 3]
 densobj4 = npc.EstimateBFS(obs4, transformation={"transf": "fixed",
                                                  "vmin": -3, "vmax": 3})
-densobj4.sampleposterior(1000)
+densobj4.sampleposterior(10000)
 
 comp34 = npc.Compare.frombfs(densobj3, densobj4,
                              transformation={"lower": -3, "upper": 3})

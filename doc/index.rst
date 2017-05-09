@@ -33,6 +33,7 @@ Quick code examples
    compare_example
    estimate_example
    estimate_and_compare_example
+   estimate_lindley_example
 
 
 Full package documentation

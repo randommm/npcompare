@@ -22,20 +22,28 @@ import scipy.stats as stats
 #Example 1
 obs = np.random.beta(1, 1, 100)
 densobj1 = npc.EstimateBFS(obs, 5)
-densobj1.sampleposterior(100)
+densobj1.sampleposterior(10000)
 
-p = densobj1.plot()
-densobj1.plot(p, True, 4)
-densobj1.plot(p, True, 3)
+#evalualte estimated at a grid of points (needed to plot object)
+densobj1.evalgrid()
+
+#Plot estimated density:
+p = densobj1.plot(color="red")
+#Plot individual component of the mixture:
+densobj1.plot(p, True, 4, color="green")
+densobj1.plot(p, True, 3, color="blue")
+#Plot true density:
 p.plot(densobj1.egresults["gridpoints"],
-       stats.betdensobj1.pdf(densobj1.egresults["gridpoints"], 1, 1))
+       stats.betdensobj1.pdf(densobj1.egresults["gridpoints"], 1, 1),
+       color="yellow")
 
 
 #Example 2
 obs=np.random.normal(0, 1, 200)
 densobj2 = npc.EstimateBFS(obs, 5, transformation="logit")
-densobj2.sampleposterior(1000)
+densobj2.sampleposterior(10000)
 
+densobj2.evalgrid()
 p = densobj2.plot()
 densobj2.plot(p, True, 4)
 densobj2.plot(p, True, 3)
@@ -50,7 +58,8 @@ obs = obs[obs > -3]
 obs = obs[obs < 3]
 densobj3 = npc.EstimateBFS(obs, transformation={"transf": "fixed",
                                                 "vmin": -3, "vmax": 3})
-densobj3.sampleposterior(1000)
+densobj3.sampleposterior(10000)
+densobj3.evalgrid()
 p = densobj3.plot()
 densobj3.plot(p, True, 4)
 densobj3.plot(p, True, 3)
@@ -73,3 +82,13 @@ estvar = quad(lambda x: x ** 2.0 * densobj3.evaluate(x),
               -3, 3)[0] - estmean ** 2.0
 
 
+#Example 4
+#Set mixture=False to work with a single Bayesian Fourier Series
+obs=np.random.normal(-0.4, 1.2, 150)
+densobj4 = npc.EstimateBFS(obs, mixture=False, nmaxcomp=10,
+                           transformation="logit")
+densobj4.sampleposterior(10000)
+densobj4.evalgrid()
+p = densobj4.plot()
+p.plot(densobj4.egresults["gridpoints"],
+       stats.norm.pdf(densobj4.egresults["gridpoints"], -0.4, 1.2))
