@@ -75,13 +75,18 @@ class Compare:
       self.weights2 = None
 
     if metric is None:
-      def metric (f1, f2, param1, param2):
-        return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
-                               lower, upper)[0]
+      self.metric = self._int_squared_error
+    else:
+      self.metric = metric
 
-    self.metric = metric
+    self.lower = lower
+    self.upper = upper
 
     self.msamples = np.array([], dtype=np.float64)
+
+  def _int_squared_error(self, f1, f2, param1, param2):
+    return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
+                              self.lower, self.upper)[0]
 
   @classmethod
   def frombfs(cls, bfsobj1, bfsobj2, transformation=True,
@@ -94,16 +99,12 @@ class Compare:
     bfsobj1 : EstimateBFS object
     bfsobj2 : EstimateBFS object
     transformation :
-      If set to None, metric will be evaluated in [0, 1] without
+      If set to False, metric will be evaluated in [0, 1] without
       transformation (EstimateBFS class documentation).
       Otherwise, transformation will be applied.
 
-      The parameter can also be set to a dictionary with the lower and
-      upper boundaries of integration manually set, that is:
-      {"lower": lower, "upper": upper} (the sample space of observed
-      data).
-
-      Ignored if bfsobj1 has no transformation.
+      Ignored if bfsobj1 has no transformation (which implies sample
+      space of [0, 1]).
     metric : function
       Metric function to be used, defaults to class's default.
 
@@ -130,37 +131,43 @@ class Compare:
           psamples[wl, (k+2):] = 0.0
           weights[wl] = bfsobj.weights[i, k]
 
-    if transformation is not None and bfsobj1.laditransf is not None:
-      def f1(x, psample):
-        logd = (fourierseries(x, bfsobj1.nmaxcomp) * \
-          psample[1:]).sum() - psample[0] + \
-          bfsobj1.laditransf(bfsobj1.itransf(x))
-        return np.exp(logd)
-      def f2(x, psample):
-        logd = (fourierseries(x, bfsobj2.nmaxcomp) * \
-          psample[1:]).sum() - psample[0] + \
-          bfsobj2.laditransf(bfsobj2.itransf(x))
-        return np.exp(logd)
-      if isinstance(transformation, dict):
-        lower = transformation["lower"]
-        upper = transformation["upper"]
-      else:
-        lower = bfsobj1.transf(0)
-        upper = bfsobj1.transf(1)
-    else:
-      def f1(x, psample):
-        logd = (fourierseries(x, bfsobj1.nmaxcomp) * \
-          psample[1:]).sum() - psample[0]
-        return np.exp(logd)
-      def f2(x, psample):
-        logd = (fourierseries(x, bfsobj2.nmaxcomp) * \
-          psample[1:]).sum() - psample[0]
-        return np.exp(logd)
-      lower = 0
-      upper = 1
+    self = cls(None, None, psamples1, psamples2, None, None,
+                   weights1, weights2, metric)
 
-    return cls(f1, f2, psamples1, psamples2, lower, upper,
-               weights1, weights2, metric)
+    if transformation and bfsobj1.transformation is not None:
+      self.lower = bfsobj1.transf(0)
+      self.upper = bfsobj1.transf(1)
+      self.bfsobj1_laditransf = bfsobj1.laditransf
+      self.bfsobj1_itransf = bfsobj1.itransf
+      self.bfsobj2_laditransf = bfsobj2.laditransf
+      self.bfsobj2_itransf = bfsobj2.itransf
+    else:
+      self.bfsobj1_laditransf = self._dummy
+      self.bfsobj1_itransf = self._dummy
+      self.bfsobj2_laditransf = self._dummy
+      self.bfsobj2_itransf = self._dummy
+      self.lower = 0
+      self.upper = 1
+
+    self.f1 = self._bfs_f1
+    self.f2 = self._bfs_f2
+    self.bfsobj1_nmaxcomp = bfsobj1.nmaxcomp
+    self.bfsobj2_nmaxcomp = bfsobj2.nmaxcomp
+
+    return self
+
+  def _dummy(self, x):
+    return 0
+
+  def _bfs_f1(self, x, psample):
+    logd = (fourierseries(x, self.bfsobj1_nmaxcomp) *
+      psample[1:]).sum() - psample[0]
+    return np.exp(logd)
+
+  def _bfs_f2(self, x, psample):
+    logd = (fourierseries(x, self.bfsobj2_nmaxcomp) *
+      psample[1:]).sum() - psample[0]
+    return np.exp(logd)
 
   def __len__(self):
      return self.msamples.size
@@ -233,4 +240,3 @@ class Compare:
     if pltshow:
       plt.show()
     return ax
-

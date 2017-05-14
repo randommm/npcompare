@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 #----------------------------------------------------------------------
 # Copyright 2017 Marco Inacio <npcompare@marcoinacio.com>
 #

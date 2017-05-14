@@ -129,29 +129,7 @@ class EstimateBFS:
     -------
     self
     """
-    #Work out transformation function
-    if transformation is not None:
-      if transformation == "logit":
-        self.transf = logit #logit
-        self.itransf = expit #invlogit
-        logoftwo = np.log(2)
-        self.laditransf = \
-          lambda x: - np.logaddexp(logoftwo, np.logaddexp(x, -x))
-      elif isinstance(transformation, Mapping):
-        if transformation["transf"] == "fixed":
-          vmax = transformation["vmax"]
-          vmin = transformation["vmin"]
-          vmaxmvmin = vmax - vmin
-          livmaxmvmin = -np.log(vmaxmvmin)
-          self.transf = lambda x: vmaxmvmin * x + vmin
-          self.itransf = lambda x: (x - vmin) / vmaxmvmin
-          self.laditransf = lambda x: livmaxmvmin
-        else:
-          self.transf = transformation["transf"]
-          self.itransf = transformation["itransf"]
-          self.laditransf = transformation["laditransf"]
-      else:
-        raise ValueError("Unrecognized parameter transformation")
+    self._set_transformation(transformation)
 
     #Save configuration parameters
     if transformation is not None or not self.__isinitialized:
@@ -195,6 +173,31 @@ class EstimateBFS:
     self.__isinitialized = True
 
     return self
+
+  def _set_transformation(self, transformation):
+    #Work out transformation function
+    if transformation is not None:
+      if transformation == "logit":
+        self.transf = logit #logit
+        self.itransf = expit #invlogit
+        logoftwo = np.log(2)
+        self.laditransf = \
+          lambda x: - np.logaddexp(logoftwo, np.logaddexp(x, -x))
+      elif isinstance(transformation, Mapping):
+        if transformation["transf"] == "fixed":
+          vmax = transformation["vmax"]
+          vmin = transformation["vmin"]
+          vmaxmvmin = vmax - vmin
+          livmaxmvmin = -np.log(vmaxmvmin)
+          self.transf = lambda x: vmaxmvmin * x + vmin
+          self.itransf = lambda x: (x - vmin) / vmaxmvmin
+          self.laditransf = lambda x: livmaxmvmin
+        else:
+          self.transf = transformation["transf"]
+          self.itransf = transformation["itransf"]
+          self.laditransf = transformation["laditransf"]
+      else:
+        raise ValueError("Unrecognized parameter transformation")
 
   def __len__(self):
      return self.beta.shape[0]
@@ -577,12 +580,19 @@ class EstimateBFS:
     return ax
 
   def __getstate__(self):
-    if EstimateBFS._pickle_notice:
-      print("You must serialize using package dill instead of pickle.")
-      EstimateBFS._pickle_notice = False
     d = OrderedDict(self.__dict__)
+
     #Ensure that self._smodel will be pickled first
     d.move_to_end("sfit")
+
+    #Remove objects that might have nested functions
+    #They will be reconstructed once loading
+    if "transf" in d.keys():
+      del(d["transf"])
+    if "itransf" in d.keys():
+      del(d["itransf"])
+    if "laditransf" in d.keys():
+      del(d["laditransf"])
     return d
 
   def __setstate__(self, d):
@@ -601,6 +611,9 @@ class EstimateBFS:
        d["egresults"][objname] = d[objname]
        del(d[objname])
     self.__dict__ = d
+
+    #Reconstruct transformation functions
+    self._set_transformation(self.transformation)
 
   _smodel_mixture = None
   _smodel_single = None
@@ -728,5 +741,3 @@ class EstimateBFS:
     }
   }
   """
-
-  _pickle_notice = True

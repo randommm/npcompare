@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 #----------------------------------------------------------------------
 # Copyright 2017 Marco Inacio <npcompare@marcoinacio.com>
 #
@@ -27,7 +25,7 @@ posterior1n = np.random.normal(0, 0.1, size=120)
 posterior2n = np.random.normal(1, 0.1, size=100)
 
 compn = npc.Compare(stats.norm.pdf, stats.norm.pdf,
-                    posterior1n, posterior2n, a=-300, b=300)
+                    posterior1n, posterior2n, lower=-300, upper=300)
 compn.sampleposterior(200)
 print(compn.msamples.mean())
 print(len(compn))
@@ -51,7 +49,7 @@ posterior2b = np.column_stack((posterior2bAlpha, posterior2bBeta))
 def f(x, params):
   return stats.beta.pdf(x, params[0], params[1])
 
-comp12b = npc.Compare(f, f, posterior1b, posterior2b, a=0, b=1)
+comp12b = npc.Compare(f, f, posterior1b, posterior2b, lower=0, upper=1)
 comp12b.sampleposterior(1000)
 print(comp12b.msamples.mean())
 
@@ -61,10 +59,10 @@ posterior3bBeta = np.abs(np.random.normal(2.4, 0.1, size=80))
 posterior3b = np.column_stack((posterior3bAlpha, posterior3bBeta))
 
 #Compare 2-by-2
-comp13b = npc.Compare(f, f, posterior1b, posterior3b, a=0, b=1)
+comp13b = npc.Compare(f, f, posterior1b, posterior3b, lower=0, upper=1)
 comp13b.sampleposterior(1000)
 
-comp23b = npc.Compare(f, f, posterior2b, posterior3b, a=0, b=1)
+comp23b = npc.Compare(f, f, posterior2b, posterior3b, lower=0, upper=1)
 comp23b.sampleposterior(1000)
 
 axx = comp12b.plot(color="blue", linewidth=2.0,

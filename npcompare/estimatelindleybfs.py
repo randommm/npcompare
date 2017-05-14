@@ -262,9 +262,6 @@ class EstimateLindleyBFS:
     return self
 
   def __getstate__(self):
-    if EstimateBFS._pickle_notice:
-      print("You must serialize using package dill instead of pickle.")
-      EstimateBFS._pickle_notice = False
     d = OrderedDict(self.__dict__)
     #Ensure that self._smodel will be pickled first
     d.move_to_end("sfit")
