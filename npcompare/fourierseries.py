@@ -7,38 +7,39 @@
 
 #This program is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    See the
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#along with this program.    If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
 
 import numpy as np
 
 def fourierseries(x, ncomponents):
-  """Calculate Fourier Series Expansion.
+    """Calculate Fourier Series Expansion.
 
-  Parameters
-  ----------
-  x : 1D numpy.array, list or tuple of numbers to calculate
-    fourier series expansion
-  ncomponents : number of components of the series
+    Parameters
+    ----------
+    x : 1D numpy.array, list or tuple of numbers to calculate
+        fourier series expansion
+    ncomponents : int
+        number of components of the series
 
-  Returns
-  ----------
-  2D numpy.array where each line is the Fourier series expansion of each
-   component of x.
-  """
-  from numpy import sqrt, sin, cos, pi
-  x = np.array(x, ndmin=1)
-  results = np.array(np.empty((x.size, ncomponents)))
+    Returns
+    ----------
+    2D numpy.array where each line is the Fourier series expansion of
+    each component of x.
+    """
+    from numpy import sqrt, sin, cos, pi
+    x = np.array(x, ndmin=1)
+    results = np.array(np.empty((x.size, ncomponents)))
 
-  for i in range(x.size):
-    for j in range(ncomponents):
-      if j%2 == 0:
-        results[i, j] = sqrt(2) * sin((j+2) * pi * x[i])
-      else:
-        results[i, j] = sqrt(2) * cos((j+1) * pi * x[i])
+    for i in range(x.size):
+        for j in range(ncomponents):
+            if j%2 == 0:
+                results[i, j] = sqrt(2) * sin((j+2) * pi * x[i])
+            else:
+                results[i, j] = sqrt(2) * cos((j+1) * pi * x[i])
 
-  return(results)
+    return(results)

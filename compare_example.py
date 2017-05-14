@@ -47,7 +47,7 @@ posterior2b = np.column_stack((posterior2bAlpha, posterior2bBeta))
 #Workaround on scipy.stats.beta.pdf so that it can accept
 #the distribution parameters as a tupple/list
 def f(x, params):
-  return stats.beta.pdf(x, params[0], params[1])
+    return stats.beta.pdf(x, params[0], params[1])
 
 comp12b = npc.Compare(f, f, posterior1b, posterior2b, lower=0, upper=1)
 comp12b.sampleposterior(1000)
