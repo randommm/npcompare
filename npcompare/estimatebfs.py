@@ -161,10 +161,10 @@ class EstimateBFS:
         if obs is not None:
             self.obs = np.array(obs, ndmin=1)
             self.nobs = self.obs.size
-            if self.transformation is not None:
-                self.itobs = self.itransf(obs)
-            else:
+            if self.transformation is None:
                 self.itobs = obs
+            else:
+                self.itobs = self.itransf(obs)
 
             self.phi = fourierseries(self.itobs, self.nmaxcomp)
             self.modeldata = dict(nobs=self.nobs, phi=self.phi,

@@ -32,7 +32,7 @@ densobj1.plot(p, True, 4, color="green")
 densobj1.plot(p, True, 3, color="blue")
 #Plot true density:
 p.plot(densobj1.egresults["gridpoints"],
-       stats.betdensobj1.pdf(densobj1.egresults["gridpoints"], 1, 1),
+       stats.beta.pdf(densobj1.egresults["gridpoints"], 1, 1),
        color="yellow")
 
 

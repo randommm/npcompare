@@ -22,7 +22,7 @@ except ImportError:
     from distutils.core import setup
 
 setup(name='npcompare',
-      version='0.11.0',
+      version='0.12.0',
       description='Nonparametric methods for density estimation and '
                   'comparison',
       author='Marco Inacio',
@@ -32,5 +32,5 @@ setup(name='npcompare',
       keywords = ['nonparametric', 'density comparision',
                   'density estimation'],
       license='GPL3',
-      requires=['numpy', 'scipy']
+      install_requires=['numpy', 'scipy']
      )

@@ -16,6 +16,7 @@
 
 import numpy as np
 from npcompare.fourierseries import fourierseries
+from npcompare.estimatebfs import EstimateBFS
 from scipy.integrate import quad
 
 class Compare:
@@ -136,17 +137,18 @@ class Compare:
                                      weights1, weights2, metric)
 
         if transformation and bfsobj1.transformation is not None:
+            self.bfs1_transformation = bfsobj1.transformation
+            self.bfs2_transformation = bfsobj2.transformation
+            self._set_bfs_transformation()
             self.lower = bfsobj1.transf(0)
             self.upper = bfsobj1.transf(1)
-            self.bfsobj1_laditransf = bfsobj1.laditransf
-            self.bfsobj1_itransf = bfsobj1.itransf
-            self.bfsobj2_laditransf = bfsobj2.laditransf
-            self.bfsobj2_itransf = bfsobj2.itransf
+            if (self.lower != bfsobj2.transf(0) or
+                self.upper != bfsobj2.transf(1)):
+                raise ValueError("bfsobj1 and bfsobj2 have different "
+                                 "sample spaces.")
         else:
             self.bfsobj1_laditransf = self._dummy
-            self.bfsobj1_itransf = self._dummy
             self.bfsobj2_laditransf = self._dummy
-            self.bfsobj2_itransf = self._dummy
             self.lower = 0
             self.upper = 1
 
@@ -163,12 +165,21 @@ class Compare:
     def _bfs_f1(self, x, psample):
         logd = (fourierseries(x, self.bfsobj1_nmaxcomp) *
             psample[1:]).sum() - psample[0]
+        logd += self.bfsobj1_laditransf(x)
         return np.exp(logd)
 
     def _bfs_f2(self, x, psample):
         logd = (fourierseries(x, self.bfsobj2_nmaxcomp) *
             psample[1:]).sum() - psample[0]
+        logd += self.bfsobj2_laditransf(x)
         return np.exp(logd)
+
+    def _set_bfs_transformation(self):
+        bfsobj1 = EstimateBFS(transformation=self.bfs1_transformation)
+        self.bfsobj1_laditransf = bfsobj1.laditransf
+
+        bfsobj2 = EstimateBFS(transformation=self.bfs2_transformation)
+        self.bfsobj2_laditransf = bfsobj2.laditransf
 
     def __len__(self):
         return self.msamples.size
@@ -242,3 +253,20 @@ class Compare:
         if pltshow:
             plt.show()
         return ax
+
+    def __getstate__(self):
+        d = self.__dict__.copy()
+
+        #Remove objects that might have nested functions
+        #They will be reconstructed once loading
+        if "bfs1_transformation" in d.keys():
+            del(d["bfsobj1_laditransf"])
+            del(d["bfsobj2_laditransf"])
+        return d
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+
+        #Reconstruct transformation functions
+        if "bfs1_transformation" in d.keys():
+            self._set_bfs_transformation()

@@ -1,0 +1,18 @@
+language: python
+python:
+  - "2.7"
+  - "3.5"
+before_script:
+- "export DISPLAY=:99.0"
+- "sh -e /etc/init.d/xvfb start"
+- sleep 5
+install:
+-  pip install pip --upgrade
+-  pip install numpy scipy pystan matplotlib
+-  pip install 'ipython<6'
+script:
+  - "ipython compare_example.py --matplotlib"
+  - "ipython estimate_example.py --matplotlib"
+  - "ipython estimate_and_compare_example.py --matplotlib"
+  - "ipython estimate_lindley_example.py --matplotlib"
+  - "ipython compare_example.py --matplotlib"
