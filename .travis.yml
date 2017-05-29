@@ -1,19 +1,21 @@
 language: python
 python:
-  - "2.7"
   - "3.5"
+  - "2.7"
 before_script:
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
   - sleep 5
 install:
   -  pip install pip --upgrade
-  -  pip install numpy scipy pystan matplotlib
+  -  pip install scipy pystan matplotlib
   -  pip install 'ipython<6'
 env:
-  - TESTFILE=compare_example.py
-  - TESTFILE=estimate_example.py
-  - TESTFILE=estimate_and_compare_example.py
-  - TESTFILE=estimate_lindley_example.py
+  - TESTTYPE=0 TESTFILE=test_lindley_same_bfs.py
+  - TESTTYPE=1 TESTFILE=compare_example.py
+  - TESTTYPE=1 TESTFILE=estimate_example.py
+  - TESTTYPE=1 TESTFILE=estimate_and_compare_example.py
+  - TESTTYPE=1 TESTFILE=estimate_lindley_example.py
 script:
-  - ipython $TESTFILE --matplotlib
+  - if [ $TESTTYPE = 0 ]; then python -m unittest discover tests $TESTFILE; fi
+  - if [ $TESTTYPE = 1 ]; then ipython $TESTFILE --matplotlib; fi
