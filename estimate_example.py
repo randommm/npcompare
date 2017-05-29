@@ -37,7 +37,7 @@ p.plot(densobj1.egresults["gridpoints"],
 
 
 #Example 2
-obs=np.random.normal(0, 1, 200)
+obs=np.random.normal(0, 1, 90)
 densobj2 = npc.EstimateBFS(obs, 5, transformation="logit")
 densobj2.sampleposterior(10000)
 
@@ -51,7 +51,7 @@ p.plot(densobj2.egresults["gridpoints"],
 
 #Example 3
 np.random.seed(10)
-obs = np.random.normal(0.5, 3.5, 250)
+obs = np.random.normal(0.5, 3.5, 120)
 obs = obs[obs > -3]
 obs = obs[obs < 3]
 densobj3 = npc.EstimateBFS(obs, transformation={"transf": "fixed",
@@ -82,7 +82,7 @@ estvar = quad(lambda x: x ** 2.0 * densobj3.evaluate(x),
 
 #Example 4
 #Set mixture=False to work with a single Bayesian Fourier Series
-obs=np.random.normal(-0.4, 1.2, 150)
+obs=np.random.normal(-0.4, 1.2, 115)
 densobj4 = npc.EstimateBFS(obs, mixture=False, nmaxcomp=10,
                            transformation="logit")
 densobj4.sampleposterior(10000)

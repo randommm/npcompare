@@ -16,36 +16,36 @@
 import numpy as np
 import npcompare as npc
 
-densobj1 = np.random.beta(1, 1, 40)
+densobj1 = np.random.beta(1, 1, 100)
 a = npc.EstimateBFS(densobj1)
-a.sampleposterior(10000)
+a.sampleposterior(5000)
 
-densobj2 = np.random.beta(0.9, 1.1, 50)
+densobj2 = np.random.beta(0.9, 1.1, 110)
 b = npc.EstimateBFS(densobj2)
-b.sampleposterior(10000)
+b.sampleposterior(5000)
 
 comp12 = npc.Compare.frombfs(a, b)
-comp12.sampleposterior()
+comp12.sampleposterior(900)
 comp12.plot()
 
 
 #Example 2
 np.random.seed(10)
-obs3 = np.random.normal(0.5, 3.5, 250)
+obs3 = np.random.normal(0.5, 3.5, 110)
 obs3 = obs3[obs3 > -3]
 obs3 = obs3[obs3 < 3]
 densobj3 = npc.EstimateBFS(obs3, transformation={"transf": "fixed",
                                                  "vmin": -3, "vmax": 3})
-densobj3.sampleposterior(10000)
+densobj3.sampleposterior(5000)
 
-obs4 = np.random.normal(-0.5, 2.5, 250)
+obs4 = np.random.normal(-0.5, 2.5, 105)
 obs4 = obs4[obs4 > -3]
 obs4 = obs4[obs4 < 3]
 densobj4 = npc.EstimateBFS(obs4, transformation={"transf": "fixed",
                                                  "vmin": -3, "vmax": 3})
-densobj4.sampleposterior(10000)
+densobj4.sampleposterior(5000)
 
 comp34 = npc.Compare.frombfs(densobj3, densobj4,
                              transformation={"lower": -3, "upper": 3})
-comp34.sampleposterior()
+comp34.sampleposterior(900)
 comp34.plot()
