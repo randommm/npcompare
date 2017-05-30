@@ -209,7 +209,7 @@ class EstimateLindleyBFS:
             drhat1 = max(abs(drhat1 - 1))
             if drhat1 < tolrhat:
                 break
-            niter += niter / 10
+            niter += niter / 2
             print("Model failed to converge given your tolrhat of ",
                   tolrhat,
                   "; the observed maximum distance of an Rhat from 1 "

@@ -8,9 +8,9 @@ import numpy as np
 import pystan
 
 class LindleySameBFS(unittest.TestCase):
-    def test_lindley_same_bfs(self):
-        obs1 = np.random.normal(0, 2, size=100)
-        obs2 = np.random.normal(0.4, 2, size=90)
+    def test_1(self):
+        obs1 = np.random.normal(0, 2, size=60)
+        obs2 = np.random.normal(0.05, 2, size=70)
         obsconcat = np.hstack((obs1, obs2))
 
         lindley = npc.EstimateLindleyBFS(obs1, obs2, nmaxcomp=4,
@@ -36,9 +36,38 @@ class LindleySameBFS(unittest.TestCase):
                                     transformation="logit")
         bfsconcat.sampleposterior(niter=100000, nchains=2)
 
-        self.assertTrue((np.absolute(lindley.bfs1.beta.mean(axis=0)
-            - bfs1.beta.mean(axis=0)) < 1e-03).all())
-        self.assertTrue((np.absolute(lindley.bfs2.beta.mean(axis=0)
-            - bfs2.beta.mean(axis=0)) < 1e-03).all())
-        self.assertTrue((np.absolute(lindley.bfsconcat.beta.mean(axis=0)
-            - bfsconcat.beta.mean(axis=0)) < 1e-03).all())
+
+        lindley.evalgrid()
+        bfs1.evalgrid()
+        bfs2.evalgrid()
+
+        obj1 = lindley.bfs1.egresults['logdensitymean']
+        obj2 = lindley.bfs2.egresults['logdensitymean']
+        obj3 = bfs1.egresults['logdensitymean']
+        obj4 = bfs2.egresults['logdensitymean']
+
+        abs_dist = np.absolute(obj1 - obj3)
+        print("abs_dist: ")
+        print(abs_dist)
+
+        abs_mean = np.absolute(obj1 + obj3) / 2
+        rel_dist = abs_dist / abs_mean
+        print("rel_dist: ")
+        print(rel_dist)
+
+        self.assertLess(rel_dist.max(), .04)
+        self.assertLess(rel_dist.mean(), .02)
+        self.assertLess(np.median(rel_dist), .02)
+
+        abs_dist = np.absolute(obj2 - obj4)
+        print("abs_dist: ")
+        print(abs_dist)
+
+        abs_mean = np.absolute(obj2 + obj4) / 2
+        rel_dist = abs_dist / abs_mean
+        print("rel_dist: ")
+        print(rel_dist)
+
+        self.assertLess(rel_dist.max(), .04)
+        self.assertLess(rel_dist.mean(), .02)
+        self.assertLess(np.median(rel_dist), .02)

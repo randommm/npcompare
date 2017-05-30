@@ -9,13 +9,17 @@ before_script:
 install:
   -  pip install pip --upgrade
   -  pip install scipy pystan matplotlib
-  -  pip install 'ipython<6'
 env:
-  - TESTTYPE=0 TESTFILE=test_lindley_same_bfs.py
   - TESTTYPE=1 TESTFILE=compare_example.py
   - TESTTYPE=1 TESTFILE=estimate_example.py
   - TESTTYPE=1 TESTFILE=estimate_and_compare_example.py
   - TESTTYPE=1 TESTFILE=estimate_lindley_example.py
+matrix:
+  include:
+  - python: "3.5"
+    env: TESTTYPE=0 TESTFILE=test_lindley_same_bfs.py
+  - python: "3.5"
+    env: TESTTYPE=0 TESTFILE=test_bfs_mixture_single.py
 script:
   - if [ $TESTTYPE = 0 ]; then python -m unittest discover tests $TESTFILE; fi
-  - if [ $TESTTYPE = 1 ]; then ipython $TESTFILE --matplotlib; fi
+  - if [ $TESTTYPE = 1 ]; then python $TESTFILE; fi

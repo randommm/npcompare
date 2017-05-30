@@ -28,8 +28,8 @@ densobj1.evalgrid()
 #Plot estimated density:
 p = densobj1.plot(color="red")
 #Plot individual component of the mixture:
-densobj1.plot(p, True, 4, color="green")
-densobj1.plot(p, True, 3, color="blue")
+densobj1.plot(p, 4, color="green")
+densobj1.plot(p, 3, color="blue")
 #Plot true density:
 p.plot(densobj1.egresults["gridpoints"],
        stats.beta.pdf(densobj1.egresults["gridpoints"], 1, 1),
@@ -43,8 +43,8 @@ densobj2.sampleposterior(10000)
 
 densobj2.evalgrid()
 p = densobj2.plot()
-densobj2.plot(p, True, 4)
-densobj2.plot(p, True, 3)
+densobj2.plot(p, 4)
+densobj2.plot(p, 3)
 p.plot(densobj2.egresults["gridpoints"],
        stats.norm.pdf(densobj2.egresults["gridpoints"], 0, 1))
 
@@ -59,8 +59,8 @@ densobj3 = npc.EstimateBFS(obs, transformation={"transf": "fixed",
 densobj3.sampleposterior(10000)
 densobj3.evalgrid()
 p = densobj3.plot()
-densobj3.plot(p, True, 4)
-densobj3.plot(p, True, 3)
+densobj3.plot(p, 4)
+densobj3.plot(p, 3)
 p.plot(densobj3.egresults["gridpoints"],
        (stats.norm.pdf(densobj3.egresults["gridpoints"], 0.5, 3.5) /
        (stats.norm.cdf(3, 0.5, 3.5) - stats.norm.cdf(-3, 0.5, 3.5))))

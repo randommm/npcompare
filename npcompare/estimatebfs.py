@@ -282,7 +282,7 @@ class EstimateBFS:
             drhat1 = max(abs(drhat1 - 1))
             if drhat1 < tolrhat:
                 break
-            niter += niter / 10
+            niter += niter / 2
             print("Model failed to converge given your tolrhat of ",
                   tolrhat, "; the observed maximum distance of an "
                   "Rhat from 1 was ", drhat1,
@@ -558,7 +558,7 @@ class EstimateBFS:
         else:
             return np.exp(usrlogdensitymixmean)
 
-    def plot(self, ax=None, pltshow=True, component=None, **kwargs):
+    def plot(self, ax=None, component=None, **kwargs):
         """
         Plot samples.
 
@@ -566,8 +566,6 @@ class EstimateBFS:
         ----------
         ax : matplotlib axes
             Axis to plot, defaults to axes of a new figure.
-        show : bool
-            If True, calls matplotlib.pyplot plt.show() at end.
         component : NoneType or integer
             Which individual component of the mixture to use.
             Set to None (default) to full mixture with posterior with
@@ -596,8 +594,6 @@ class EstimateBFS:
         if ax is None:
             ax = plt.figure().add_subplot(111)
         ax.plot(self.egresults["gridpoints"], ytoplot, **kwargs)
-        if pltshow:
-            plt.show()
         return ax
 
     def __getstate__(self):

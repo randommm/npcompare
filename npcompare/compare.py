@@ -87,7 +87,7 @@ class Compare:
 
     def _int_squared_error(self, f1, f2, param1, param2):
         return quad(lambda x: (f1(x, param1) - f2(x, param2))**2,
-                               self.lower, self.upper)[0]
+                               self.lower, self.upper, limit=1000)[0]
 
     @classmethod
     def frombfs(cls, bfsobj1, bfsobj2, transformation=True,
@@ -220,7 +220,7 @@ class Compare:
 
         self.msamples = np.hstack([self.msamples, result])
 
-    def plot(self, ax=None, pltshow=True, **kwargs):
+    def plot(self, ax=None, **kwargs):
         """
         Plot empirical CDF of metric samples.
 
@@ -250,8 +250,6 @@ class Compare:
         ax.step(smsamples,
                 np.arange(self.msamples.size) / self.msamples.size,
                 **kwargs)
-        if pltshow:
-            plt.show()
         return ax
 
     def __getstate__(self):
