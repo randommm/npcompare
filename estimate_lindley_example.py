@@ -18,9 +18,9 @@ import npcompare as npc
 import scipy.stats as stats
 
 #Example 1
-obs1 = np.random.normal(0, 1, size=60)
-obs2 = np.random.normal(0.4, 1, size=50)
-test1 = npc.EstimateLindleyBFS(obs1, obs2, nmaxcomp=3,
+obs0 = np.random.normal(0, 1, size=60)
+obs1 = np.random.normal(0.4, 1, size=50)
+test1 = npc.EstimateLindleyBFS(obs0, obs1, nmaxcomp=3,
                                #46% a priori probability that each
                                #dataset came from different populations
                                hplindley=.46,
@@ -43,15 +43,15 @@ print(test1.problindley)
 
 #You can also get the indivual EstimateBFS objects and work with them
 #as usual where
-#test1.bfs1: EstimateBFS object fitted to dataset 1
-#test1.bfs2: EstimateBFS object fitted to dataset 2
+#test1.bfs0: EstimateBFS object fitted to dataset 1
+#test1.bfs1: EstimateBFS object fitted to dataset 2
 #test1.bfsconcat: EstimateBFS object fitted both datasets
 #concatenated (that is, assuming a priori that both datasets came from
 #the same population).
+test1.bfs0.evalgrid()
 test1.bfs1.evalgrid()
-test1.bfs2.evalgrid()
 test1.bfsconcat.evalgrid()
-p = test1.bfs1.plot(color="red")
-test1.bfs2.plot(p, color="green")
+p = test1.bfs0.plot(color="red")
+test1.bfs1.plot(p, color="green")
 test1.bfsconcat.plot(p, color="yellow")
 p.set_xlim(-7,7)

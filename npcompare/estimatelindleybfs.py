@@ -30,12 +30,12 @@ class EstimateLindleyBFS:
 
     Parameters
     ----------
-    obs1 : array like
+    obs0 : array like
         List/tuple or numpy.array 1D array of observations for model 1.
-    obs2 : array like
+    obs1 : array like
         List/tuple or numpy.array 1D array of observations for model 2.
     hplindley : float
-        A priori probability that obs1 and obs2 came from different
+        A priori probability that obs0 and obs1 came from different
         populations.
     **kwargs:
         Additional keyword arguments passed to method `fit`.
@@ -44,7 +44,7 @@ class EstimateLindleyBFS:
     ----------
     For other parameters, see documentation for EstimateBFS.
     """
-    def __init__(self, obs1=None, obs2=None, nmaxcomp=10, hpp=1,
+    def __init__(self, obs0=None, obs1=None, nmaxcomp=10, hpp=1,
                  hpgamma=0, hplindley=.5, transformation=None,
                  mixture=True, **kwargs):
         self._ismixture = mixture
@@ -52,10 +52,10 @@ class EstimateLindleyBFS:
         self.__isinitialized = False
         if not "niter" in kwargs:
             kwargs["niter"] = 0
-        self.fit(obs1, obs2, nmaxcomp, hpp, hpgamma, hplindley,
+        self.fit(obs0, obs1, nmaxcomp, hpp, hpgamma, hplindley,
                  transformation, **kwargs)
 
-    def fit(self, obs1, obs2, nmaxcomp=None, hpp=None, hpgamma=None,
+    def fit(self, obs0, obs1, nmaxcomp=None, hpp=None, hpgamma=None,
             hplindley=None, transformation=None, niter=5000, **kwargs):
         """
         Configure object model data and automatically calls method
@@ -63,14 +63,14 @@ class EstimateLindleyBFS:
 
         Parameters
         ----------
-        obs1 : array like
+        obs0 : array like
             List/tuple or numpy.array 1D array of observations for model
             1.
-        obs2 : array like
+        obs1 : array like
             List/tuple or numpy.array 1D array of observations for model
             2.
         hplindley : float
-            A priori probability that obs1 and obs2 came from different
+            A priori probability that obs0 and obs1 came from different
             populations.
         **kwargs:
             Additional keyword arguments passed to method `sample`.
@@ -90,26 +90,26 @@ class EstimateLindleyBFS:
         self.problindley = None
         self.nsim = None
 
-        if obs1 is None or obs2 is None:
+        if obs0 is None or obs1 is None:
             obsconcat = None
         else:
-            obsconcat = np.hstack((obs1, obs2))
+            obsconcat = np.hstack((obs0, obs1))
 
         if hplindley is not None or not self.__isinitialized:
             self.hplindley = hplindley
 
         if self.__isinitialized:
-            self.bfs1.fit(obs1, nmaxcomp, hpp, hpgamma,
+            self.bfs0.fit(obs0, nmaxcomp, hpp, hpgamma,
                           transformation, 0, **kwargs)
-            self.bfs2.fit(obs2, nmaxcomp, hpp, hpgamma,
+            self.bfs1.fit(obs1, nmaxcomp, hpp, hpgamma,
                           transformation, 0, **kwargs)
             self.bfsconcat.fit(obsconcat, nmaxcomp, hpp, hpgamma,
                                transformation, **kwargs)
         else:
-            self.bfs1 = EstimateBFS(obs1, nmaxcomp, hpp, hpgamma,
+            self.bfs0 = EstimateBFS(obs0, nmaxcomp, hpp, hpgamma,
                                     transformation, self._ismixture,
                                     **kwargs)
-            self.bfs2 = EstimateBFS(obs2, nmaxcomp, hpp, hpgamma,
+            self.bfs1 = EstimateBFS(obs1, nmaxcomp, hpp, hpgamma,
                                     transformation, self._ismixture,
                                     **kwargs)
             self.bfsconcat = EstimateBFS(obsconcat, nmaxcomp, hpp,
@@ -121,10 +121,10 @@ class EstimateLindleyBFS:
         if self.bfsconcat.modeldata is not None:
             self.modeldata = dict(self.bfsconcat.modeldata)
             self.modeldata["hplindley"] = self.hplindley
+            self.modeldata["nobs0"] = self.bfs0.nobs
             self.modeldata["nobs1"] = self.bfs1.nobs
-            self.modeldata["nobs2"] = self.bfs2.nobs
-            self.modeldata["phi1"] = self.bfs1.phi
-            self.modeldata["phi2"] = self.bfs2.phi
+            self.modeldata["phi1"] = self.bfs0.phi
+            self.modeldata["phi2"] = self.bfs1.phi
             del(self.modeldata["nobs"])
             del(self.modeldata["phi"])
         else:
@@ -225,28 +225,28 @@ class EstimateLindleyBFS:
         if not self.sfit:
             raise Exception("This function cannot be called before "
                             "obj.sampleposterior()")
-        self.bfs1.sfit = self.bfs2.sfit = self.sfit
+        self.bfs0.sfit = self.bfs1.sfit = self.sfit
         self.bfsconcat.sfit = self.sfit
-        self.bfs1._processfit(beta="beta1",
+        self.bfs0._processfit(beta="beta1",
                               lognormconst="lognormconst1",
                               weights="weights1")
-        self.bfs2._processfit(beta="beta2",
+        self.bfs1._processfit(beta="beta2",
                               lognormconst="lognormconst2",
                               weights="weights2")
         self.bfsconcat._processfit(beta="betaconcat",
                                    lognormconst="lognormconstconcat",
                                    weights="weightsconcat")
-        self.nsim = self.bfs1.nsim
+        self.nsim = self.bfs0.nsim
 
         weightsfull = self.sfit.extract("weightsfull")["weightsfull"]
         self.problindley = weightsfull.mean(0)
         if self._ismixture:
+            self.bfs0.weights *= weightsfull[:, 0, None]
             self.bfs1.weights *= weightsfull[:, 0, None]
-            self.bfs2.weights *= weightsfull[:, 0, None]
             self.bfsconcat.weights *= weightsfull[:, 1, None]
         else:
-            self.bfs1.weights = np.array(weightsfull[:, 0])
-            self.bfs2.weights = self.bfs1.weights
+            self.bfs0.weights = np.array(weightsfull[:, 0])
+            self.bfs1.weights = self.bfs0.weights
             self.bfsconcat.weights = np.array(weightsfull[:, 1])
 
     def evalgrid(self, gridsize=1000):
@@ -255,8 +255,8 @@ class EstimateLindleyBFS:
         holds, that is, this is equivalent to calling:
         ::
 
+            obj.bfs0.evalgrid(gridsize)
             obj.bfs1.evalgrid(gridsize)
-            obj.bfs2.evalgrid(gridsize)
             obj.bfsconcat.evalgrid(gridsize)
 
         Parameters
@@ -267,8 +267,8 @@ class EstimateLindleyBFS:
         -------
         self
         """
+        self.bfs0.evalgrid(gridsize)
         self.bfs1.evalgrid(gridsize)
-        self.bfs2.evalgrid(gridsize)
         self.bfsconcat.evalgrid(gridsize)
 
         return self
@@ -277,8 +277,8 @@ class EstimateLindleyBFS:
         d = OrderedDict(self.__dict__)
         #Ensure that self._smodel will be pickled first
         d.move_to_end("sfit")
+        d.move_to_end("bfs0")
         d.move_to_end("bfs1")
-        d.move_to_end("bfs2")
         d.move_to_end("bfsconcat")
         return d
 
@@ -307,11 +307,11 @@ functions {
 }
 data {
   int<lower=1> nmaxcomp; // number of mixture components
+  int<lower=1> nobs0; // number of data points
   int<lower=1> nobs1; // number of data points
-  int<lower=1> nobs2; // number of data points
 
-  matrix[nobs1, nmaxcomp] phi1;
-  matrix[nobs2, nmaxcomp] phi2;
+  matrix[nobs0, nmaxcomp] phi1;
+  matrix[nobs1, nmaxcomp] phi2;
   real<lower=0> hpp;
   real<lower=0> hpgamma;
 
@@ -320,7 +320,7 @@ data {
 transformed data {
   real x_r[0];
   int x_i[0];
-  matrix[nobs1 + nobs2, nmaxcomp] phiconcat;
+  matrix[nobs0 + nobs1, nmaxcomp] phiconcat;
   real minus_hpp_minus_half;
   int<lower=1> nobsconcat;
   real lhplindley[2];
@@ -330,7 +330,7 @@ transformed data {
 
   minus_hpp_minus_half = -hpp - 0.5;
 
-  nobsconcat = nobs1 + nobs2;
+  nobsconcat = nobs0 + nobs1;
   lhplindley[1] = log(hplindley);
   lhplindley[2] = log1m(hplindley);
 
@@ -356,7 +356,7 @@ transformed parameters {
                              to_array_1d(beta1[1:i, i]),
                              x_r, x_i, 1.49e-08, 1.49e-08, 1e7)[1,1]);
     lp1[i] = sum(phi1[, 1:i] * beta1[1:i, i])
-             - nobs1 * lognormconst1[i]
+             - nobs0 * lognormconst1[i]
              + minus_hpgamma_times_i[i];
 
     lognormconst2[i] =
@@ -364,7 +364,7 @@ transformed parameters {
                              to_array_1d(beta2[1:i, i]),
                              x_r, x_i, 1.49e-08, 1.49e-08, 1e7)[1,1]);
     lp2[i] = sum(phi2[, 1:i] * beta2[1:i, i])
-             - nobs2 * lognormconst2[i]
+             - nobs1 * lognormconst2[i]
              + minus_hpgamma_times_i[i];
 
     lognormconstconcat[i] =
@@ -436,11 +436,11 @@ functions {
 }
 data {
   int<lower=1> nmaxcomp; // number of mixture components
+  int<lower=1> nobs0; // number of data points
   int<lower=1> nobs1; // number of data points
-  int<lower=1> nobs2; // number of data points
 
-  matrix[nobs1, nmaxcomp] phi1;
-  matrix[nobs2, nmaxcomp] phi2;
+  matrix[nobs0, nmaxcomp] phi1;
+  matrix[nobs1, nmaxcomp] phi2;
   real<lower=0> hpp;
 
   real<lower=0> hplindley;
@@ -448,7 +448,7 @@ data {
 transformed data {
   real x_r[0];
   int x_i[0];
-  matrix[nobs1 + nobs2, nmaxcomp] phiconcat;
+  matrix[nobs0 + nobs1, nmaxcomp] phiconcat;
   real minus_hpp_minus_half;
   int<lower=1> nobsconcat;
   real lhplindley[2];
@@ -457,7 +457,7 @@ transformed data {
 
   minus_hpp_minus_half = -hpp - 0.5;
 
-  nobsconcat = nobs1 + nobs2;
+  nobsconcat = nobs0 + nobs1;
   lhplindley[1] = log(hplindley);
   lhplindley[2] = log1m(hplindley);
 }
@@ -487,8 +487,8 @@ transformed parameters {
                            to_array_1d(betaconcat),
                            x_r, x_i, 1.49e-08, 1.49e-08, 1e7)[1,1]);
 
-  lpfull[1] = sum(phi1 * beta1) - nobs1 * lognormconst1
-              + sum(phi2 * beta2) - nobs2 * lognormconst2
+  lpfull[1] = sum(phi1 * beta1) - nobs0 * lognormconst1
+              + sum(phi2 * beta2) - nobs1 * lognormconst2
               + lhplindley[1];
 
   lpfull[2] = sum(phiconcat * betaconcat)

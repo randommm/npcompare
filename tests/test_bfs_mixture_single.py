@@ -30,16 +30,16 @@ class BFSMixtureSingle(unittest.TestCase):
         sin_bfs3.evalgrid()
         sin_bfs4.evalgrid()
 
-        obj1 = mix_bfs.egresults['logdensityindivmean'][6]
-        obj2 = mix_bfs.egresults['logdensityindivmean'][5]
-        obj3 = sin_bfs3.egresults['logdensitymean']
-        obj4 = sin_bfs4.egresults['logdensitymean']
+        obj0 = mix_bfs.egresults['logdensityindivmean'][6]
+        obj1 = mix_bfs.egresults['logdensityindivmean'][5]
+        obj2 = sin_bfs3.egresults['logdensitymean']
+        obj3 = sin_bfs4.egresults['logdensitymean']
 
-        abs_dist = np.absolute(obj1 - obj3)
+        abs_dist = np.absolute(obj0 - obj2)
         print("abs_dist: ")
         print(abs_dist)
 
-        abs_mean = np.absolute(obj1 + obj3) / 2
+        abs_mean = np.absolute(obj0 + obj2) / 2
         rel_dist = abs_dist / abs_mean
         print("rel_dist: ")
         print(rel_dist)
@@ -48,11 +48,11 @@ class BFSMixtureSingle(unittest.TestCase):
         self.assertLess(rel_dist.mean(), .02)
         self.assertLess(np.median(rel_dist), .02)
 
-        abs_dist = np.absolute(obj2 - obj4)
+        abs_dist = np.absolute(obj1 - obj3)
         print("abs_dist: ")
         print(abs_dist)
 
-        abs_mean = np.absolute(obj2 + obj4) / 2
+        abs_mean = np.absolute(obj1 + obj3) / 2
         rel_dist = abs_dist / abs_mean
         print("rel_dist: ")
         print(rel_dist)
