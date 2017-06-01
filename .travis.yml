@@ -17,6 +17,8 @@ env:
 matrix:
   include:
   - python: "3.5"
+    env: TESTTYPE=0 TESTFILE=test_compare.py
+  - python: "3.5"
     env: TESTTYPE=0 TESTFILE=test_lindley_same_bfs.py
   - python: "3.5"
     env: TESTTYPE=0 TESTFILE=test_bfs_mixture_single.py
