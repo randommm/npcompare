@@ -77,6 +77,7 @@ class EstimateBFS:
                  transformation=None, mixture=True, **kwargs):
         self._ismixture = mixture
         self._smodel = None
+        self.extra_hppgamma = 0
 
         if not "niter" in kwargs:
             kwargs["niter"] = 0
@@ -400,10 +401,9 @@ class EstimateBFS:
 
     def __predictdensityindiv(self, tedp, phiedp, transformed, i):
         evlogdensityindivmean = np.empty(tedp.size)
-        temp = np.empty(self.nsim)
         for j in range(tedp.size):
-            temp = ((phiedp[j, 0:i] * self.beta[:, 0:i, i]).sum(1)
-                    - self.lognormconst[:, i])
+            temp = phiedp[j, 0:(i+1)] * self.beta[:, 0:(i+1), i]
+            temp = temp.sum(1) - self.lognormconst[:, i]
 
             #get log of average of exponential of the log-likelihood for
             #each posterior simulation.
@@ -446,7 +446,11 @@ class EstimateBFS:
         maxprefpm = prefpm.max(axis=0)
         prefpm -= maxprefpm
         prefpm = np.exp(prefpm)
-        prefpm = np.average(prefpm, axis=0, weights=self.probcomp)
+        weights = self.probcomp
+        if self.extra_hppgamma:
+            factor = np.arange(1., self.nmaxcomp + 1.)
+            weights = weights * np.exp(factor * - self.extra_hppgamma)
+        prefpm = np.average(prefpm, axis=0, weights=weights)
         prefpm = np.log(prefpm)
         prefpm += maxprefpm
         evlogdensitymixmean = prefpm
@@ -534,8 +538,8 @@ class EstimateBFS:
                 return np.exp(usrlogdensitymean)
 
         #Special case for single component of mixture
-        if component:
-            phipoints = fourierseries(itpoints, component)
+        if component is not None:
+            phipoints = fourierseries(itpoints, component + 1)
             usrlogdensityindivmean = (self
               .__predictdensityindiv(points, phipoints, transformed,
                                      component))
@@ -614,19 +618,28 @@ class EstimateBFS:
 
     def __setstate__(self, d):
         d["_EstimateBFS__isinitialized"] = True
+
+        #backward-compatibility: new _ismixture parameter
         if "_ismixture" not in d.keys():
-         d["_ismixture"] = True
+            d["_ismixture"] = True
+
+        #foward-compatibility: new grideval names
         if "isgridevalued" in d.keys():
-         del(d["isgridevalued"])
+            del(d["isgridevalued"])
         if "egresults" not in d.keys():
-         d["egresults"] = dict()
+            d["egresults"] = dict()
         for objname in ["densityindivmean", "logdensityindivmean",
                         "densitymixmean", "logdensitymixmean",
                         "densitymean", "logdensitymean",
                         "gridpoints_internal_bfs", "gridpoints"]:
-         if objname in d.keys():
-             d["egresults"][objname] = d[objname]
-             del(d[objname])
+            if objname in d.keys():
+                d["egresults"][objname] = d[objname]
+                del(d[objname])
+
+        #backward-compatibility: new extra_hppgamma parameter
+        if "extra_hppgamma" not in d.keys():
+            d["extra_hppgamma"] = 0
+
         self.__dict__ = d
 
         #Reconstruct transformation functions
