@@ -31,6 +31,7 @@ setup(name='npcompare',
       packages=['npcompare'],
       keywords = ['nonparametric', 'density comparision',
                   'density estimation'],
+      package_data={'npcompare': ["models/*.stan"]},
       license='GPL3',
       install_requires=['numpy', 'scipy']
      )
