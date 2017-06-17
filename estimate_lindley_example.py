@@ -17,23 +17,25 @@ import numpy as np
 import npcompare as npc
 import scipy.stats as stats
 
+np.random.seed(12)
+
 #Example 1
-obs0 = np.random.normal(0, 1, size=60)
-obs1 = np.random.normal(0.4, 1, size=50)
-test1 = npc.EstimateLindleyBFS(obs0, obs1, nmaxcomp=3,
+obs0 = np.random.normal(0.1, 1, size=60)
+obs1 = np.random.normal(0.05, 1, size=50)
+test1 = npc.EstimateLindleyBFS(obs0, obs1, nmaxcomp=7,
                                #46% a priori probability that each
                                #dataset came from different populations
                                hplindley=.46,
                                #Just like with EstimateBFS, you can work
                                #with a mixture of Bayesian Fourier
                                #series, or with a single one
-                               mixture=False,
+                               mixture=True,
                                #You can also work with transformation of
                                #data as usual, see the example file for
                                #EstimateBFS for details.
                                transformation="logit")
 test1.compilestanmodel()
-test1.sampleposterior(niter=10000, nchains=2, refresh=100)
+test1.sampleposterior(niter=10000, nchains=2, refresh=100, init_r=0.2)
 
 #Print a posteriori probability, where the first element of the array
 #is the probability that each dataset came from different populations

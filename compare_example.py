@@ -19,6 +19,8 @@ import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 
+np.random.seed(12)
+
 #Suppose these are your posterior obtained from MCMC
 #And likelihoods are normal distribution
 posterior1n = np.random.normal(0, 0.1, size=120)

@@ -17,6 +17,8 @@ import numpy as np
 import npcompare as npc
 import scipy.stats as stats
 
+np.random.seed(12)
+
 #Example 1
 obs = np.random.beta(1, 1, 100)
 densobj1 = npc.EstimateBFS(obs, 5)

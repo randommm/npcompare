@@ -16,12 +16,15 @@
 import numpy as np
 import npcompare as npc
 
-densobj1 = np.random.beta(1, 1, 100)
-a = npc.EstimateBFS(densobj1)
+np.random.seed(12)
+
+obs0 = np.random.beta(1, 1, 100)
+obs1 = np.random.beta(0.9, 1.1, 110)
+
+a = npc.EstimateBFS(obs0)
 a.sampleposterior(5000)
 
-densobj2 = np.random.beta(0.9, 1.1, 110)
-b = npc.EstimateBFS(densobj2)
+b = npc.EstimateBFS(obs1)
 b.sampleposterior(5000)
 
 comp12 = npc.Compare.frombfs(a, b)
