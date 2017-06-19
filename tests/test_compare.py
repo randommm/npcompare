@@ -23,13 +23,13 @@ class Compare(unittest.TestCase):
         true_dist = quad(lambda x: (stats.beta.pdf(x, 2, 3)
           - stats.beta.pdf(x, 3, 2))**2, 0, 1)[0]
 
-        bfs0 = npc.EstimateBFS(obs0, nmaxcomp=10,
+        bfs0 = npc.EstimateBFS(obs0, nmaxcomp=8,
                                mixture=True,
                                #transformation="logit"
                                )
         bfs0.sampleposterior(niter=10000, nchains=2)
 
-        bfs1 = npc.EstimateBFS(obs1, nmaxcomp=10,
+        bfs1 = npc.EstimateBFS(obs1, nmaxcomp=8,
                                mixture=True,
                                #transformation="logit"
                                )
