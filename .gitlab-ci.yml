@@ -1,0 +1,17 @@
+image: ubuntu:rolling
+
+pages:
+  script:
+  - apt-get update
+  - apt-get install build-essential python3-pip python3-dev make -y
+  - pip3 install sphinx sphinx_rtd_theme npcompare scipy numpydoc
+  - cd doc
+  - make dirhtml
+  - cd ..
+  - mv doc/_build/dirhtml/ public/
+  artifacts:
+    paths:
+    - public
+  only:
+  - master
+
