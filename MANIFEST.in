@@ -1,1 +1,1 @@
-include MANIFEST.in LICENSE README.rst setup.py compare_example.py
+include MANIFEST.in LICENSE README.rst setup.py compare_example.py estimate_example.py estimate_and_compare_example.py estimate_lindley_example.py

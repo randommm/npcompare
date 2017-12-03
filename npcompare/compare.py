@@ -199,9 +199,10 @@ class Compare:
 
         Returns
         -------
-        None
+        self
         """
         result = np.empty(niter)
+
         psamples1_index = \
             np.random.choice(np.arange(self.psamples1.shape[0]),
             niter, p=self.weights1)
@@ -219,6 +220,8 @@ class Compare:
                     print(i, "samples generated")
 
         self.msamples = np.hstack([self.msamples, result])
+
+        return self
 
     def plot(self, ax=None, **kwargs):
         """
